@@ -190,64 +190,6 @@ ChildGenerationResult generate_children(
 }
 
 
-
-
-
-//===========================下界计算（完全无输出）==============================
-double compute_total_lower_bound(
-    const Node& node,
-    const std::vector<int>& parts,
-    const std::vector<double>& D,
-    const std::vector<double>& ST,
-    const std::vector<double>& VT,
-    const std::vector<double>& UT,
-    const std::vector<double>& h,
-    const std::vector<double>& v
-) {
-    double time_cursor = 0.0;
-    double tard_assigned = 0.0;
-
-    // 已分配
-    std::unordered_map<int, double> comp;
-    comp.reserve(parts.size());
-    for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = node.S.begin();
-        it != node.S.end(); ++it) {
-        double vol = 0.0, mh = 0.0;
-        for (std::size_t j = 0; j < it->second.size(); ++j) {
-            vol += v[it->second[j]];
-            if (h[it->second[j]] > mh) mh = h[it->second[j]];
-        }
-        double PT = ST[0] + VT[0] * vol + UT[0] * mh;
-        for (std::size_t j = 0; j < it->second.size(); ++j) {
-            comp[it->second[j]] = time_cursor + PT;
-        }
-        time_cursor += PT;
-    }
-    for (typename std::unordered_map<int, double>::const_iterator it = comp.begin(); it != comp.end(); ++it) {
-        tard_assigned += std::max(0.0, it->second - D[it->first]);
-    }
-
-    // 未分配并行下界
-    double tard_unassigned = 0.0;
-    std::unordered_set<int> assigned;
-    assigned.reserve(parts.size());
-    for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = node.S.begin();
-        it != node.S.end(); ++it) {
-        for (std::size_t j = 0; j < it->second.size(); ++j) {
-            assigned.insert(it->second[j]);
-        }
-    }
-    for (std::size_t i = 0; i < parts.size(); ++i) {
-        int p = parts[i];
-        if (assigned.find(p) == assigned.end()) {
-            double pt = ST[0] + VT[0] * v[p] + UT[0] * h[p];
-            double c = time_cursor + pt;
-            tard_unassigned += std::max(0.0, c - D[p]);
-        }
-    }
-
-    return tard_assigned + tard_unassigned;
-}
 //======================完成时间计算=============================
 std::unordered_map<int, double> compute_completion_times(
     const Node& node,
@@ -259,29 +201,27 @@ std::unordered_map<int, double> compute_completion_times(
 ) {
     std::unordered_map<int, double> comp_times;
 
-    // 查找最新生成的批次（编号最大）
     if (node.S.empty()) return comp_times;
 
-    int max_batch_id = -1;
-    for (const auto& [bid, _] : node.S) {
-        max_batch_id = std::max(max_batch_id, bid);
-    }
+    // 找最大编号批次（只需保留当前新增的）
+    auto last_batch_it = std::max_element(
+        node.S.begin(), node.S.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; }
+    );
 
-    const auto& part_ids = node.S.at(max_batch_id);
+    const auto& part_ids = last_batch_it->second;
 
-    // 计算体积与最大高度
+    // 内联计算 PT
     double vol = 0.0, mh = 0.0;
     for (int pid : part_ids) {
         vol += v[pid];
         mh = std::max(mh, h[pid]);
     }
-
-    // 计算加工时间
     double PT = ST[0] + VT[0] * vol + UT[0] * mh;
-    double start_time = node.completion_time;
+    double completion_time = node.completion_time;
 
     for (int pid : part_ids) {
-        comp_times[pid] = start_time + PT;
+        comp_times[pid] = completion_time + PT;
     }
 
     return comp_times;
@@ -292,22 +232,19 @@ double compute_assigned_tardiness(
     const Node& node,
     const std::vector<double>& D
 ) {
-    if (node.S.empty()) return node.total_tardiness;
+    if (node.S.empty()) return 0.0;
 
-    // 查找最新批次（编号最大）
-    int max_batch_id = -1;
-    for (const auto& [bid, _] : node.S) {
-        max_batch_id = std::max(max_batch_id, bid);
-    }
+    auto last_batch_it = std::max_element(
+        node.S.begin(), node.S.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; }
+    );
 
-    const std::vector<int>& part_ids = node.S.at(max_batch_id);
-
-    // 已知 node.completion_time 是该批次的完成时间，直接使用
-    double new_completion_time = node.completion_time;
-
+    const auto& part_ids = last_batch_it->second;
+    double completion_time = node.completion_time;
     double tardiness = 0.0;
+
     for (int pid : part_ids) {
-        tardiness += std::max(0.0, new_completion_time - D[pid]);
+        tardiness += std::max(0.0, completion_time - D[pid]);
     }
 
     return node.total_tardiness + tardiness;
@@ -318,34 +255,27 @@ double compute_unassigned_lower_bound(
     const Node& node,
     const std::vector<int>& parts,
     const std::vector<double>& D,
-    const std::vector<double>& ST,
-    const std::vector<double>& VT,
-    const std::vector<double>& UT,
-    const std::vector<double>& h,
-    const std::vector<double>& v
+    const std::vector<double>& cached_PT  // 改为缓存值
 ) {
-    // 找出已分配的零件
     std::unordered_set<int> assigned;
-    for (const auto& [_, part_ids] : node.S) {
-        for (int pid : part_ids) {
+    for (const auto& [_, plist] : node.S) {
+        for (int pid : plist) {
             assigned.insert(pid);
         }
     }
 
-    // 初始化未分配部分的延迟估计
-    double unassigned_tardiness = 0.0;
+    double est_tardiness = 0.0;
+    double start_time = node.completion_time;
 
-    for (int p : parts) {
-        if (assigned.find(p) == assigned.end()) {
-            // 对每个未分配零件，估算加工时间并独立批次处理
-            double pt = ST[0] + VT[0] * v[p] + UT[0] * h[p];
-            double c = node.completion_time + pt;  // 假设从当前时间并行开始
-            unassigned_tardiness += std::max(0.0, c - D[p]);
-        }
+    for (int pid : parts) {
+        if (assigned.count(pid)) continue;
+
+        double pt = cached_PT[pid];  // 查询缓存
+        double c = start_time + pt;
+        est_tardiness += std::max(0.0, c - D[pid]);
     }
 
-    // 返回当前延迟 + 未来估计
-    return node.total_tardiness + unassigned_tardiness;
+    return node.total_tardiness + est_tardiness;
 }
 
 
@@ -379,6 +309,12 @@ std::pair<Node, Stats> branch_and_cut(
         part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
     }
 
+    //PT值预缓存
+    std::vector<double> cached_PT(parts.size());
+    for (int p : parts) {
+        cached_PT[p] = ST[0] + VT[0] * v[p] + UT[0] * h[p];
+    }
+
     // 判断是否全分配
     auto all_assigned = [&](const Node& nd)->bool {
         std::size_t cnt = 0;
@@ -391,7 +327,7 @@ std::pair<Node, Stats> branch_and_cut(
 
     Node best(initial_S, 0.0, "Best", 0.0, 0.0);
     Node root({}, 0.0, "Root", 0.0, 0.0);  // 修复初始化
-    root.LB = compute_total_lower_bound(root, parts, D, ST, VT, UT, h, v);
+    //root.LB = compute_total_lower_bound(root, parts, D, ST, VT, UT, h, v);
 
     std::deque<Node> stack;
     stack.push_back(root);
@@ -462,7 +398,7 @@ std::pair<Node, Stats> branch_and_cut(
             child.total_tardiness = compute_assigned_tardiness(child, D);
 
             // 3. 基于更新后的 completion_time 和 total_tardiness 估算下界
-            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            child.LB = compute_unassigned_lower_bound(child, parts, D, cached_PT);
 
             // 添加日志记录（检验增量下界）
             if (log_stream.is_open()) {
@@ -504,7 +440,7 @@ std::ofstream log_stream;
 
 std::string get_log_filename(const std::string& input_filename) {
     std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = "logs_OriginLB/";
+    std::string log_dir = "logs_IncrementalLB/";
     fs::create_directories(log_dir);  // 创建 logs 目录（若不存在）
 
     int count = 1;

@@ -74,16 +74,6 @@ struct ChildGenerationResult {
 
 
 //=========================下界计算================================
-double compute_total_lower_bound(
-    const Node& node,
-    const std::vector<int>& parts,
-    const std::vector<double>& D,
-    const std::vector<double>& ST,
-    const std::vector<double>& VT,
-    const std::vector<double>& UT,
-    const std::vector<double>& h,
-    const std::vector<double>& v
-);
 
 std::unordered_map<int, double> compute_completion_times(
     const Node& node,
@@ -103,12 +93,9 @@ double compute_unassigned_lower_bound(
     const Node& node,
     const std::vector<int>& parts,
     const std::vector<double>& D,
-    const std::vector<double>& ST,
-    const std::vector<double>& VT,
-    const std::vector<double>& UT,
-    const std::vector<double>& h,
-    const std::vector<double>& v
+    const std::vector<double>& cached_PT  // 预计算缓存
 );
+
 
 //==========================Branch and Bound========================
 struct Stats {
