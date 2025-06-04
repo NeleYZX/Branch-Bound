@@ -400,23 +400,6 @@ std::pair<Node, Stats> branch_and_cut(
             // 3. 基于更新后的 completion_time 和 total_tardiness 估算下界
             child.LB = compute_unassigned_lower_bound(child, parts, D, cached_PT);
 
-            // 添加日志记录（检验增量下界）
-            if (log_stream.is_open()) {
-                log_stream << "\n======= Node " << child.name << " =======\n";
-                log_stream << "completion_time: " << child.completion_time << "\n";
-                log_stream << "total_tardiness: " << child.total_tardiness << "\n";
-                log_stream << "LB: " << child.LB << "\n";
-                log_stream << "Batches\n";
-                for (const auto& [bid, plist] : child.S) {
-                    log_stream << "  batch " << bid << ": ";
-                    for (int pid : plist) {
-                        log_stream << pid << " ";
-                    }
-                    log_stream << "\n";
-                }
-                log_stream << "==============================\n";
-            }
-
             // 4. 剪枝判断
             if (child.LB < UB) {
                 stack.push_back(child);
