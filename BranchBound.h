@@ -27,6 +27,8 @@ struct Node {
     int last_batch_id = -1;
     std::unordered_set<int> assigned_parts;
 
+    int depth = 0;
+
     // 默认构造
     Node();
 
@@ -74,13 +76,6 @@ struct ChildGenerationResult {
     std::vector<Node> children;
     int pruned_count;
 };
-//std::vector<Node> generate_children(
-//    const Node& node,
-//    const std::vector<int>& parts,
-//    double machine_area,
-//    const std::vector<double>& part_areas
-//);
-
 
 //=========================下界计算================================
 
