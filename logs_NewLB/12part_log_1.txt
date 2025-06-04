@@ -1,0 +1,44 @@
+﻿Machine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 3.000000 x 6.000000 x 32.000000, Vol = 90.000000, Support = 0.000000
+  Part 1: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 2: 7.000000 x 3.000000 x 3.000000, Vol = 30.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 4: 4.000000 x 5.000000 x 5.000000, Vol = 72.000000, Support = 0.000000
+  Part 5: 8.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 6: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 7: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 8: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+  Part 9: 5.000000 x 4.000000 x 7.000000, Vol = 84.000000, Support = 0.000000
+  Part 10: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 11: 5.000000 x 4.000000 x 6.000000, Vol = 60.000000, Support = 0.000000
+
+The total tardiness:387.353293
+
+============== Start Branch and Cut Search ==============
+
+
+=============== Best Solution ===============
+Node(Root0123):
+  LB = 139.084
+  S = {
+    Batch 0: [2, 3, 7, 9, 11]
+    Batch 1: [4, 5, 6, 8, 10]
+    Batch 2: [1]
+    Batch 3: [0]
+  }
+============= The search Info =============
+The handled total nodes(pop):62543
+The number of generated nodes:6504424
+The number of leaf nodes:14
+The times of updated best solution:14
+pruned times-Area:0
+pruned times-LB:6444161
+pruned times-Infeasible:0
+time:15.605000s

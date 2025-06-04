@@ -1,0 +1,1864 @@
+﻿Machine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 10.000000 x 10.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 3.000000 x 6.000000 x 32.000000, Vol = 90.000000, Support = 0.000000
+  Part 1: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 2: 7.000000 x 3.000000 x 3.000000, Vol = 30.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 4: 4.000000 x 5.000000 x 5.000000, Vol = 72.000000, Support = 0.000000
+
+The total tardiness:71.626816
+
+============== Start Branch and Cut Search ==============
+
+
+======= Node Root0 =======
+completion_time: 27.1778
+total_tardiness: 19.1778
+LB: 51.6801
+Batches
+  batch 0: 0 
+==============================
+
+======= Node Root0 =======
+completion_time: 12.2296
+total_tardiness: 0
+LB: 31.4074
+Batches
+  batch 0: 1 
+==============================
+
+======= Node Root0 =======
+completion_time: 31.8074
+total_tardiness: 33.6147
+LB: 62.5985
+Batches
+  batch 0: 0 1 
+==============================
+
+======= Node Root0 =======
+completion_time: 5.02592
+total_tardiness: 0
+LB: 24.2037
+Batches
+  batch 0: 2 
+==============================
+
+======= Node Root0 =======
+completion_time: 28.1037
+total_tardiness: 20.1037
+LB: 54.1801
+Batches
+  batch 0: 0 2 
+==============================
+
+======= Node Root0 =======
+completion_time: 13.1555
+total_tardiness: 0
+LB: 32.3333
+Batches
+  batch 0: 1 2 
+==============================
+
+======= Node Root0 =======
+completion_time: 32.7333
+total_tardiness: 37.1998
+LB: 62.2022
+Batches
+  batch 0: 0 1 2 
+==============================
+
+======= Node Root0 =======
+completion_time: 8.81357
+total_tardiness: 0
+LB: 27.9913
+Batches
+  batch 0: 3 
+==============================
+
+======= Node Root0 =======
+completion_time: 29.0913
+total_tardiness: 21.1827
+LB: 52.4344
+Batches
+  batch 0: 0 3 
+==============================
+
+======= Node Root0 =======
+completion_time: 14.1432
+total_tardiness: 0
+LB: 33.3209
+Batches
+  batch 0: 1 3 
+==============================
+
+======= Node Root0 =======
+completion_time: 33.7209
+total_tardiness: 42.1628
+LB: 63.3528
+Batches
+  batch 0: 0 1 3 
+==============================
+
+======= Node Root0 =======
+completion_time: 9.73949
+total_tardiness: 0
+LB: 28.9172
+Batches
+  batch 0: 2 3 
+==============================
+
+======= Node Root0 =======
+completion_time: 30.0172
+total_tardiness: 23.0345
+LB: 53.0208
+Batches
+  batch 0: 0 2 3 
+==============================
+
+======= Node Root0 =======
+completion_time: 7.72221
+total_tardiness: 0
+LB: 26.9
+Batches
+  batch 0: 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 29.4
+total_tardiness: 22.7999
+LB: 55.0689
+Batches
+  batch 0: 0 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 14.4518
+total_tardiness: 0
+LB: 33.6296
+Batches
+  batch 0: 1 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 34.0296
+total_tardiness: 44.0887
+LB: 65.9873
+Batches
+  batch 0: 0 1 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 8.64813
+total_tardiness: 0
+LB: 27.8259
+Batches
+  batch 0: 2 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 30.3259
+total_tardiness: 24.6518
+LB: 55.3467
+Batches
+  batch 0: 0 2 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 11.0358
+total_tardiness: 0
+LB: 31.4789
+Batches
+  batch 0: 3 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 31.3135
+total_tardiness: 28.9406
+LB: 55.8232
+Batches
+  batch 0: 0 3 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 16.3654
+total_tardiness: 0
+LB: 35.5431
+Batches
+  batch 0: 1 3 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 11.9617
+total_tardiness: 0
+LB: 33.3308
+Batches
+  batch 0: 2 3 4 
+==============================
+
+======= Node Root0 =======
+completion_time: 32.2395
+total_tardiness: 32.9578
+LB: 55.4269
+Batches
+  batch 0: 0 2 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 44.4691
+total_tardiness: 55.4269
+LB: 55.4269
+Batches
+  batch 0: 0 2 3 4 
+  batch 1: 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 39.1395
+total_tardiness: 31.1395
+LB: 60.5085
+Batches
+  batch 0: 2 3 4 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 24.1913
+total_tardiness: 2.1913
+LB: 45.5604
+Batches
+  batch 0: 2 3 4 
+  batch 1: 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 43.7691
+total_tardiness: 57.5381
+LB: 57.5381
+Batches
+  batch 0: 2 3 4 
+  batch 1: 0 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 51.3691
+total_tardiness: 45.5604
+LB: 45.5604
+Batches
+  batch 0: 2 3 4 
+  batch 1: 1 
+  batch 2: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 43.5431
+total_tardiness: 35.5431
+LB: 53.1122
+Batches
+  batch 0: 1 3 4 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.3913
+total_tardiness: 0
+LB: 40.5691
+Batches
+  batch 0: 1 3 4 
+  batch 1: 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 44.4691
+total_tardiness: 49.9381
+LB: 49.9381
+Batches
+  batch 0: 1 3 4 
+  batch 1: 0 2 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.5691
+total_tardiness: 40.5691
+LB: 40.5691
+Batches
+  batch 0: 1 3 4 
+  batch 1: 2 
+  batch 2: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 38.2135
+total_tardiness: 30.2135
+LB: 70.8961
+Batches
+  batch 0: 3 4 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 23.2654
+total_tardiness: 1.26538
+LB: 43.7085
+Batches
+  batch 0: 3 4 
+  batch 1: 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.8431
+total_tardiness: 55.6863
+LB: 72.5553
+Batches
+  batch 0: 3 4 
+  batch 1: 0 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 16.0617
+total_tardiness: 0
+LB: 41.5308
+Batches
+  batch 0: 3 4 
+  batch 1: 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 39.1395
+total_tardiness: 39.2789
+LB: 68.648
+Batches
+  batch 0: 3 4 
+  batch 1: 0 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 24.1913
+total_tardiness: 2.1913
+LB: 45.5604
+Batches
+  batch 0: 3 4 
+  batch 1: 1 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 43.7691
+total_tardiness: 70.3072
+LB: 70.3072
+Batches
+  batch 0: 3 4 
+  batch 1: 0 1 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 35.8259
+total_tardiness: 27.8259
+LB: 69.5208
+Batches
+  batch 0: 2 4 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 20.8777
+total_tardiness: 0
+LB: 40.7468
+Batches
+  batch 0: 2 4 
+  batch 1: 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 40.4555
+total_tardiness: 50.911
+LB: 71.18
+Batches
+  batch 0: 2 4 
+  batch 1: 0 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 17.4617
+total_tardiness: 0
+LB: 44.3308
+Batches
+  batch 0: 2 4 
+  batch 1: 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 37.7395
+total_tardiness: 38.4789
+LB: 66.448
+Batches
+  batch 0: 2 4 
+  batch 1: 0 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 22.7913
+total_tardiness: 0.791296
+LB: 42.7604
+Batches
+  batch 0: 2 4 
+  batch 1: 1 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.3691
+total_tardiness: 68.1072
+LB: 68.1072
+Batches
+  batch 0: 2 4 
+  batch 1: 0 1 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 41.6296
+total_tardiness: 33.6296
+LB: 70.7282
+Batches
+  batch 0: 1 4 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 19.4777
+total_tardiness: 0
+LB: 38.6555
+Batches
+  batch 0: 1 4 
+  batch 1: 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.5555
+total_tardiness: 46.111
+LB: 68.48
+Batches
+  batch 0: 1 4 
+  batch 1: 0 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 23.2654
+total_tardiness: 0
+LB: 42.4431
+Batches
+  batch 0: 1 4 
+  batch 1: 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 43.5431
+total_tardiness: 50.0863
+LB: 67.6553
+Batches
+  batch 0: 1 4 
+  batch 1: 0 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 24.1913
+total_tardiness: 0
+LB: 43.3691
+Batches
+  batch 0: 1 4 
+  batch 1: 2 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 44.4691
+total_tardiness: 65.4072
+LB: 65.4072
+Batches
+  batch 0: 1 4 
+  batch 1: 0 2 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.6555
+total_tardiness: 38.6555
+LB: 65.1245
+Batches
+  batch 0: 1 4 
+  batch 1: 2 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 28.2913
+total_tardiness: 0
+LB: 47.4691
+Batches
+  batch 0: 1 4 
+  batch 1: 2 
+  batch 2: 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.5691
+total_tardiness: 60.1381
+LB: 60.1381
+Batches
+  batch 0: 1 4 
+  batch 1: 2 
+  batch 2: 0 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 34.9
+total_tardiness: 26.9
+LB: 75.669
+Batches
+  batch 0: 4 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 19.9518
+total_tardiness: 0
+LB: 39.1296
+Batches
+  batch 0: 4 
+  batch 1: 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 39.5296
+total_tardiness: 49.0591
+LB: 81.9578
+Batches
+  batch 0: 4 
+  batch 1: 0 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 12.7481
+total_tardiness: 0
+LB: 34.9036
+Batches
+  batch 0: 4 
+  batch 1: 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 35.8259
+total_tardiness: 32.6518
+LB: 74.3467
+Batches
+  batch 0: 4 
+  batch 1: 0 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 20.8777
+total_tardiness: 0
+LB: 40.7468
+Batches
+  batch 0: 4 
+  batch 1: 1 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 40.4555
+total_tardiness: 60.3665
+LB: 80.6355
+Batches
+  batch 0: 4 
+  batch 1: 0 1 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 16.5358
+total_tardiness: 0
+LB: 42.4789
+Batches
+  batch 0: 4 
+  batch 1: 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 36.8135
+total_tardiness: 36.6271
+LB: 74.5097
+Batches
+  batch 0: 4 
+  batch 1: 0 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.8654
+total_tardiness: 0
+LB: 41.0431
+Batches
+  batch 0: 4 
+  batch 1: 1 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 41.4431
+total_tardiness: 65.3294
+LB: 80.7985
+Batches
+  batch 0: 4 
+  batch 1: 0 1 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 17.4617
+total_tardiness: 0
+LB: 44.3308
+Batches
+  batch 0: 4 
+  batch 1: 2 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 37.7395
+total_tardiness: 45.2184
+LB: 73.1874
+Batches
+  batch 0: 4 
+  batch 1: 0 2 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 39.9259
+total_tardiness: 31.9259
+LB: 81.8208
+Batches
+  batch 0: 4 
+  batch 1: 2 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 24.9777
+total_tardiness: 2.97773
+LB: 51.9245
+Batches
+  batch 0: 4 
+  batch 1: 2 
+  batch 2: 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 44.5555
+total_tardiness: 59.111
+LB: 83.48
+Batches
+  batch 0: 4 
+  batch 1: 2 
+  batch 2: 0 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 21.5617
+total_tardiness: 0
+LB: 52.5308
+Batches
+  batch 0: 4 
+  batch 1: 2 
+  batch 2: 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 41.8395
+total_tardiness: 46.6789
+LB: 78.748
+Batches
+  batch 0: 4 
+  batch 1: 2 
+  batch 2: 0 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 26.8913
+total_tardiness: 4.8913
+LB: 50.9604
+Batches
+  batch 0: 4 
+  batch 1: 2 
+  batch 2: 1 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.4691
+total_tardiness: 80.4072
+LB: 80.4072
+Batches
+  batch 0: 4 
+  batch 1: 2 
+  batch 2: 0 1 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 47.1296
+total_tardiness: 39.1296
+LB: 87.2282
+Batches
+  batch 0: 4 
+  batch 1: 1 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 24.9777
+total_tardiness: 0
+LB: 48.9468
+Batches
+  batch 0: 4 
+  batch 1: 1 
+  batch 2: 2 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.0555
+total_tardiness: 57.111
+LB: 84.98
+Batches
+  batch 0: 4 
+  batch 1: 1 
+  batch 2: 0 2 
+==============================
+
+======= Node Root012 =======
+completion_time: 28.7654
+total_tardiness: 0
+LB: 50.7344
+Batches
+  batch 0: 4 
+  batch 1: 1 
+  batch 2: 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 49.0431
+total_tardiness: 61.0863
+LB: 84.1553
+Batches
+  batch 0: 4 
+  batch 1: 1 
+  batch 2: 0 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 29.6913
+total_tardiness: 0.691296
+LB: 49.5604
+Batches
+  batch 0: 4 
+  batch 1: 1 
+  batch 2: 2 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 49.9691
+total_tardiness: 81.9072
+LB: 81.9072
+Batches
+  batch 0: 4 
+  batch 1: 1 
+  batch 2: 0 2 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 36.9172
+total_tardiness: 28.9172
+LB: 72.7036
+Batches
+  batch 0: 2 3 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.9691
+total_tardiness: 0
+LB: 42.8381
+Batches
+  batch 0: 2 3 
+  batch 1: 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 41.5468
+total_tardiness: 53.0937
+LB: 74.3628
+Batches
+  batch 0: 2 3 
+  batch 1: 0 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 17.4617
+total_tardiness: 0
+LB: 44.3308
+Batches
+  batch 0: 2 3 
+  batch 1: 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 39.1395
+total_tardiness: 42.2789
+LB: 71.648
+Batches
+  batch 0: 2 3 
+  batch 1: 0 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 24.1913
+total_tardiness: 2.1913
+LB: 45.5604
+Batches
+  batch 0: 2 3 
+  batch 1: 1 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 43.7691
+total_tardiness: 73.3072
+LB: 73.3072
+Batches
+  batch 0: 2 3 
+  batch 1: 0 1 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 41.3209
+total_tardiness: 33.3209
+LB: 69.7109
+Batches
+  batch 0: 1 3 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 19.1691
+total_tardiness: 0
+LB: 38.3468
+Batches
+  batch 0: 1 3 
+  batch 1: 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.2468
+total_tardiness: 45.4937
+LB: 67.4628
+Batches
+  batch 0: 1 3 
+  batch 1: 0 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.8654
+total_tardiness: 0
+LB: 41.0431
+Batches
+  batch 0: 1 3 
+  batch 1: 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 43.5431
+total_tardiness: 51.0863
+LB: 68.6553
+Batches
+  batch 0: 1 3 
+  batch 1: 0 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 22.7913
+total_tardiness: 0
+LB: 41.9691
+Batches
+  batch 0: 1 3 
+  batch 1: 2 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 44.4691
+total_tardiness: 66.4072
+LB: 66.4072
+Batches
+  batch 0: 1 3 
+  batch 1: 0 2 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.3468
+total_tardiness: 38.3468
+LB: 64.4159
+Batches
+  batch 0: 1 3 
+  batch 1: 2 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 26.8913
+total_tardiness: 0
+LB: 46.0691
+Batches
+  batch 0: 1 3 
+  batch 1: 2 
+  batch 2: 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.5691
+total_tardiness: 61.1381
+LB: 61.1381
+Batches
+  batch 0: 1 3 
+  batch 1: 2 
+  batch 2: 0 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 35.9913
+total_tardiness: 27.9913
+LB: 79.943
+Batches
+  batch 0: 3 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.0432
+total_tardiness: 0
+LB: 40.9863
+Batches
+  batch 0: 3 
+  batch 1: 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 40.6209
+total_tardiness: 51.2419
+LB: 86.2318
+Batches
+  batch 0: 3 
+  batch 1: 0 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 13.8395
+total_tardiness: 0
+LB: 37.0863
+Batches
+  batch 0: 3 
+  batch 1: 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 36.9172
+total_tardiness: 34.8345
+LB: 78.6208
+Batches
+  batch 0: 3 
+  batch 1: 0 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.9691
+total_tardiness: 0
+LB: 42.8381
+Batches
+  batch 0: 3 
+  batch 1: 1 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 41.5468
+total_tardiness: 63.6405
+LB: 84.9096
+Batches
+  batch 0: 3 
+  batch 1: 0 1 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 16.5358
+total_tardiness: 0
+LB: 42.4789
+Batches
+  batch 0: 3 
+  batch 1: 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 38.2135
+total_tardiness: 40.4271
+LB: 81.1097
+Batches
+  batch 0: 3 
+  batch 1: 0 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 23.2654
+total_tardiness: 1.26538
+LB: 43.7085
+Batches
+  batch 0: 3 
+  batch 1: 1 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.8431
+total_tardiness: 70.5294
+LB: 87.3985
+Batches
+  batch 0: 3 
+  batch 1: 0 1 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 17.4617
+total_tardiness: 0
+LB: 44.3308
+Batches
+  batch 0: 3 
+  batch 1: 2 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 39.1395
+total_tardiness: 50.4184
+LB: 79.7874
+Batches
+  batch 0: 3 
+  batch 1: 0 2 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 41.0172
+total_tardiness: 33.0172
+LB: 85.0036
+Batches
+  batch 0: 3 
+  batch 1: 2 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 26.0691
+total_tardiness: 4.06909
+LB: 55.1072
+Batches
+  batch 0: 3 
+  batch 1: 2 
+  batch 2: 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 45.6468
+total_tardiness: 61.2937
+LB: 86.6628
+Batches
+  batch 0: 3 
+  batch 1: 2 
+  batch 2: 0 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 21.5617
+total_tardiness: 0
+LB: 52.5308
+Batches
+  batch 0: 3 
+  batch 1: 2 
+  batch 2: 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 43.2395
+total_tardiness: 50.4789
+LB: 83.948
+Batches
+  batch 0: 3 
+  batch 1: 2 
+  batch 2: 0 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 28.2913
+total_tardiness: 6.58259
+LB: 54.0516
+Batches
+  batch 0: 3 
+  batch 1: 2 
+  batch 2: 1 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 47.8691
+total_tardiness: 85.6072
+LB: 85.6072
+Batches
+  batch 0: 3 
+  batch 1: 2 
+  batch 2: 0 1 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 40.3333
+total_tardiness: 32.3333
+LB: 72.5356
+Batches
+  batch 0: 1 2 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.9691
+total_tardiness: 0
+LB: 42.8381
+Batches
+  batch 0: 1 2 
+  batch 1: 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.2468
+total_tardiness: 47.4937
+LB: 69.4628
+Batches
+  batch 0: 1 2 
+  batch 1: 0 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 20.8777
+total_tardiness: 0
+LB: 40.7468
+Batches
+  batch 0: 1 2 
+  batch 1: 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.5555
+total_tardiness: 49.111
+LB: 71.48
+Batches
+  batch 0: 1 2 
+  batch 1: 0 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 24.1913
+total_tardiness: 0
+LB: 43.3691
+Batches
+  batch 0: 1 2 
+  batch 1: 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 44.4691
+total_tardiness: 68.4072
+LB: 68.4072
+Batches
+  batch 0: 1 2 
+  batch 1: 0 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 32.2037
+total_tardiness: 24.2037
+LB: 70.5801
+Batches
+  batch 0: 2 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 17.2555
+total_tardiness: 0
+LB: 36.4333
+Batches
+  batch 0: 2 
+  batch 1: 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 36.8333
+total_tardiness: 43.6666
+LB: 76.8689
+Batches
+  batch 0: 2 
+  batch 1: 0 1 
+==============================
+
+======= Node Root01 =======
+completion_time: 13.8395
+total_tardiness: 0
+LB: 37.0863
+Batches
+  batch 0: 2 
+  batch 1: 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 34.1172
+total_tardiness: 31.2345
+LB: 69.4208
+Batches
+  batch 0: 2 
+  batch 1: 0 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 19.1691
+total_tardiness: 0
+LB: 38.3468
+Batches
+  batch 0: 2 
+  batch 1: 1 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 38.7468
+total_tardiness: 57.2405
+LB: 75.7096
+Batches
+  batch 0: 2 
+  batch 1: 0 1 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 12.7481
+total_tardiness: 0
+LB: 34.9036
+Batches
+  batch 0: 2 
+  batch 1: 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 34.4259
+total_tardiness: 32.8518
+LB: 71.7467
+Batches
+  batch 0: 2 
+  batch 1: 0 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 19.4777
+total_tardiness: 0
+LB: 38.6555
+Batches
+  batch 0: 2 
+  batch 1: 1 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 39.0555
+total_tardiness: 59.1665
+LB: 78.0355
+Batches
+  batch 0: 2 
+  batch 1: 0 1 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 16.0617
+total_tardiness: 0
+LB: 41.5308
+Batches
+  batch 0: 2 
+  batch 1: 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 36.3395
+total_tardiness: 44.0184
+LB: 70.5874
+Batches
+  batch 0: 2 
+  batch 1: 0 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.3913
+total_tardiness: 0
+LB: 40.5691
+Batches
+  batch 0: 2 
+  batch 1: 1 3 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.6555
+total_tardiness: 38.6555
+LB: 65.1245
+Batches
+  batch 0: 2 
+  batch 1: 1 4 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 28.2913
+total_tardiness: 0
+LB: 47.4691
+Batches
+  batch 0: 2 
+  batch 1: 1 4 
+  batch 2: 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.5691
+total_tardiness: 60.1381
+LB: 60.1381
+Batches
+  batch 0: 2 
+  batch 1: 1 4 
+  batch 2: 0 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 39.9259
+total_tardiness: 31.9259
+LB: 81.8208
+Batches
+  batch 0: 2 
+  batch 1: 4 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 24.9777
+total_tardiness: 2.97773
+LB: 51.9245
+Batches
+  batch 0: 2 
+  batch 1: 4 
+  batch 2: 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 44.5555
+total_tardiness: 59.111
+LB: 83.48
+Batches
+  batch 0: 2 
+  batch 1: 4 
+  batch 2: 0 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 21.5617
+total_tardiness: 0
+LB: 52.5308
+Batches
+  batch 0: 2 
+  batch 1: 4 
+  batch 2: 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 41.8395
+total_tardiness: 46.6789
+LB: 78.748
+Batches
+  batch 0: 2 
+  batch 1: 4 
+  batch 2: 0 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 26.8913
+total_tardiness: 4.8913
+LB: 50.9604
+Batches
+  batch 0: 2 
+  batch 1: 4 
+  batch 2: 1 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.4691
+total_tardiness: 80.4072
+LB: 80.4072
+Batches
+  batch 0: 2 
+  batch 1: 4 
+  batch 2: 0 1 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.3468
+total_tardiness: 38.3468
+LB: 64.4159
+Batches
+  batch 0: 2 
+  batch 1: 1 3 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 26.8913
+total_tardiness: 0
+LB: 46.0691
+Batches
+  batch 0: 2 
+  batch 1: 1 3 
+  batch 2: 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.5691
+total_tardiness: 61.1381
+LB: 61.1381
+Batches
+  batch 0: 2 
+  batch 1: 1 3 
+  batch 2: 0 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 41.0172
+total_tardiness: 33.0172
+LB: 85.0036
+Batches
+  batch 0: 2 
+  batch 1: 3 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 26.0691
+total_tardiness: 4.06909
+LB: 55.1072
+Batches
+  batch 0: 2 
+  batch 1: 3 
+  batch 2: 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 45.6468
+total_tardiness: 61.2937
+LB: 86.6628
+Batches
+  batch 0: 2 
+  batch 1: 3 
+  batch 2: 0 1 
+==============================
+
+======= Node Root012 =======
+completion_time: 21.5617
+total_tardiness: 0
+LB: 52.5308
+Batches
+  batch 0: 2 
+  batch 1: 3 
+  batch 2: 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 43.2395
+total_tardiness: 50.4789
+LB: 83.948
+Batches
+  batch 0: 2 
+  batch 1: 3 
+  batch 2: 0 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 28.2913
+total_tardiness: 6.58259
+LB: 54.0516
+Batches
+  batch 0: 2 
+  batch 1: 3 
+  batch 2: 1 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 47.8691
+total_tardiness: 85.6072
+LB: 85.6072
+Batches
+  batch 0: 2 
+  batch 1: 3 
+  batch 2: 0 1 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 44.4333
+total_tardiness: 36.4333
+LB: 84.8356
+Batches
+  batch 0: 2 
+  batch 1: 1 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 26.0691
+total_tardiness: 0
+LB: 51.0381
+Batches
+  batch 0: 2 
+  batch 1: 1 
+  batch 2: 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.3468
+total_tardiness: 55.6937
+LB: 81.7628
+Batches
+  batch 0: 2 
+  batch 1: 1 
+  batch 2: 0 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 24.9777
+total_tardiness: 0
+LB: 48.9468
+Batches
+  batch 0: 2 
+  batch 1: 1 
+  batch 2: 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.6555
+total_tardiness: 57.311
+LB: 83.78
+Batches
+  batch 0: 2 
+  batch 1: 1 
+  batch 2: 0 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 28.2913
+total_tardiness: 0.291296
+LB: 47.7604
+Batches
+  batch 0: 2 
+  batch 1: 1 
+  batch 2: 3 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.5691
+total_tardiness: 80.7072
+LB: 80.7072
+Batches
+  batch 0: 2 
+  batch 1: 1 
+  batch 2: 0 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 39.4074
+total_tardiness: 31.4074
+LB: 83.1911
+Batches
+  batch 0: 1 
+  batch 1: 0 
+==============================
+
+======= Node Root01 =======
+completion_time: 17.2555
+total_tardiness: 0
+LB: 36.4333
+Batches
+  batch 0: 1 
+  batch 1: 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 40.3333
+total_tardiness: 41.6666
+LB: 81.8689
+Batches
+  batch 0: 1 
+  batch 1: 0 2 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.0432
+total_tardiness: 0
+LB: 40.9863
+Batches
+  batch 0: 1 
+  batch 1: 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 41.3209
+total_tardiness: 45.6419
+LB: 82.0318
+Batches
+  batch 0: 1 
+  batch 1: 0 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 21.9691
+total_tardiness: 0
+LB: 42.8381
+Batches
+  batch 0: 1 
+  batch 1: 2 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.2468
+total_tardiness: 58.7405
+LB: 80.7096
+Batches
+  batch 0: 1 
+  batch 1: 0 2 3 
+==============================
+
+======= Node Root01 =======
+completion_time: 19.9518
+total_tardiness: 0
+LB: 39.1296
+Batches
+  batch 0: 1 
+  batch 1: 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 41.6296
+total_tardiness: 47.2591
+LB: 84.3578
+Batches
+  batch 0: 1 
+  batch 1: 0 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 20.8777
+total_tardiness: 0
+LB: 40.7468
+Batches
+  batch 0: 1 
+  batch 1: 2 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 42.5555
+total_tardiness: 60.6665
+LB: 83.0355
+Batches
+  batch 0: 1 
+  batch 1: 0 2 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 23.2654
+total_tardiness: 0
+LB: 42.4431
+Batches
+  batch 0: 1 
+  batch 1: 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 43.5431
+total_tardiness: 65.6294
+LB: 83.1985
+Batches
+  batch 0: 1 
+  batch 1: 0 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 24.1913
+total_tardiness: 0
+LB: 43.3691
+Batches
+  batch 0: 1 
+  batch 1: 2 3 4 
+==============================
+
+======= Node Root01 =======
+completion_time: 44.4691
+total_tardiness: 81.8762
+LB: 81.8762
+Batches
+  batch 0: 1 
+  batch 1: 0 2 3 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 47.1296
+total_tardiness: 39.1296
+LB: 87.2282
+Batches
+  batch 0: 1 
+  batch 1: 4 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 24.9777
+total_tardiness: 0
+LB: 48.9468
+Batches
+  batch 0: 1 
+  batch 1: 4 
+  batch 2: 2 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.0555
+total_tardiness: 57.111
+LB: 84.98
+Batches
+  batch 0: 1 
+  batch 1: 4 
+  batch 2: 0 2 
+==============================
+
+======= Node Root012 =======
+completion_time: 28.7654
+total_tardiness: 0
+LB: 50.7344
+Batches
+  batch 0: 1 
+  batch 1: 4 
+  batch 2: 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 49.0431
+total_tardiness: 61.0863
+LB: 84.1553
+Batches
+  batch 0: 1 
+  batch 1: 4 
+  batch 2: 0 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 29.6913
+total_tardiness: 0.691296
+LB: 49.5604
+Batches
+  batch 0: 1 
+  batch 1: 4 
+  batch 2: 2 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 49.9691
+total_tardiness: 81.9072
+LB: 81.9072
+Batches
+  batch 0: 1 
+  batch 1: 4 
+  batch 2: 0 2 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 44.4333
+total_tardiness: 36.4333
+LB: 84.8356
+Batches
+  batch 0: 1 
+  batch 1: 2 
+  batch 2: 0 
+==============================
+
+======= Node Root012 =======
+completion_time: 26.0691
+total_tardiness: 0
+LB: 51.0381
+Batches
+  batch 0: 1 
+  batch 1: 2 
+  batch 2: 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.3468
+total_tardiness: 55.6937
+LB: 81.7628
+Batches
+  batch 0: 1 
+  batch 1: 2 
+  batch 2: 0 3 
+==============================
+
+======= Node Root012 =======
+completion_time: 24.9777
+total_tardiness: 0
+LB: 48.9468
+Batches
+  batch 0: 1 
+  batch 1: 2 
+  batch 2: 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 46.6555
+total_tardiness: 57.311
+LB: 83.78
+Batches
+  batch 0: 1 
+  batch 1: 2 
+  batch 2: 0 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 28.2913
+total_tardiness: 0.291296
+LB: 47.7604
+Batches
+  batch 0: 1 
+  batch 1: 2 
+  batch 2: 3 4 
+==============================
+
+======= Node Root012 =======
+completion_time: 48.5691
+total_tardiness: 80.7072
+LB: 80.7072
+Batches
+  batch 0: 1 
+  batch 1: 2 
+  batch 2: 0 3 4 
+==============================
+
+=============== Best Solution ===============
+Node(Root012):
+  LB = 40.5691
+  S = {
+    Batch 0: [1, 3, 4]
+    Batch 1: [2]
+    Batch 2: [0]
+  }
+============= The search Info =============
+The handled total nodes(pop):42
+The number of generated nodes:198
+The number of leaf nodes:3
+The times of updated best solution:3
+pruned times-Area:12
+pruned times-LB:168
+pruned times-Infeasible:0
+time:0.006000s

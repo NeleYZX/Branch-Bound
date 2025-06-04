@@ -19,12 +19,16 @@ public:
     // 每个批次对应的零件列表
     std::unordered_map<int, std::vector<int>> S;
     double LB;            // 当前节点的下界
+    double completion_time;     // 当前累计完成时间
+    double total_tardiness;     // 当前已产生总延迟
     std::string name;     // 节点名称
 
     Node();
     Node(const std::unordered_map<int, std::vector<int>>& S_,
         double LB_,
-        const std::string& name_ = "N");
+        const std::string& name_ = "N",
+        double completion_time_ = 0.0,
+        double total_tardiness_ = 0.0);
 
     bool operator==(const Node& other) const;
 
@@ -55,15 +59,47 @@ std::pair<BatchMap, double> generateInitialSolution(
 );
 
 //=========================子节点生成==============================
-std::vector<Node> generate_children(
-    const Node& node,
-    const std::vector<int>& parts,
-    double machine_area,
-    const std::vector<double>& part_areas
-);
+struct ChildGenerationResult {
+    std::vector<Node> children;
+    int pruned_count;
+};
+
+
+//std::vector<Node> generate_children(
+//    const Node& node,
+//    const std::vector<int>& parts,
+//    double machine_area,
+//    const std::vector<double>& part_areas
+//);
+
 
 //=========================下界计算================================
 double compute_total_lower_bound(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+);
+
+std::unordered_map<int, double> compute_completion_times(
+    const Node& node,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+);
+
+double compute_assigned_tardiness(
+    const Node& node,
+    const std::vector<double>& D
+);
+
+double compute_unassigned_lower_bound(
     const Node& node,
     const std::vector<int>& parts,
     const std::vector<double>& D,

@@ -75,12 +75,17 @@ std::pair<BatchMap, double> generateInitialSolution(
 }
 
 //===========================Node 定义===============================
-Node::Node() : LB(0.0), name("N") {}
+Node::Node()
+    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N") {
+}
 
-Node::Node(const std::unordered_map<int, std::vector<int> >& S_,
+Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     double LB_,
-    const std::string& name_)
-    : S(S_), LB(LB_), name(name_) {
+    const std::string& name_,
+    double completion_time_,
+    double total_tardiness_)
+    : S(S_), LB(LB_), name(name_),
+    completion_time(completion_time_), total_tardiness(total_tardiness_) {
 }
 
 bool Node::operator==(const Node& other) const {
@@ -119,124 +124,72 @@ std::ostream& operator<<(std::ostream& os, const Node& node) {
 }
 
 //=======================子节点生成（位掩码 + 面积即时剪枝）========================
-//std::vector<Node> generate_children(
-//    const Node& node,
-//    const std::vector<int>& parts,
-//    double machine_area,
-//    const std::vector<double>& part_areas
-//) {
-//    // 已分配集合
-//    std::unordered_set<int> assigned;
-//    assigned.reserve(parts.size());
-//    for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = node.S.begin();
-//        it != node.S.end(); ++it) {
-//        for (std::size_t j = 0; j < it->second.size(); ++j) {
-//            assigned.insert(it->second[j]);
-//        }
-//    }
-//
-//    // 未分配列表
-//    std::vector<int> unassigned;
-//    unassigned.reserve(parts.size());
-//    for (std::size_t i = 0; i < parts.size(); ++i) {
-//        if (assigned.find(parts[i]) == assigned.end()) {
-//            unassigned.push_back(parts[i]);
-//        }
-//    }
-//
-//    int n = static_cast<int>(unassigned.size());
-//    if (n == 0) return std::vector<Node>();
-//
-//    std::vector<Node> children;
-//    if (n < 20) children.reserve((1u << n) - 1);
-//
-//    // 枚举所有非空子集
-//    for (unsigned mask = 1; mask < (1u << n); ++mask) {
-//        double a_sum = 0.0;
-//        std::vector<int> subset;
-//        for (int b = 0; b < n; ++b) {
-//            if (mask & (1u << b)) {
-//                a_sum += part_areas[unassigned[b]];
-//                if (a_sum > machine_area) break;
-//                subset.push_back(unassigned[b]);
-//            }
-//        }
-//        if (a_sum > machine_area) continue;
-//
-//        // 构造新 S
-//        std::unordered_map<int, std::vector<int> > newS = node.S;
-//        int max_id = -1;
-//        for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = newS.begin(); it != newS.end(); ++it) {
-//            if (it->first > max_id) max_id = it->first;
-//        }
-//        newS[max_id + 1] = subset;
-//
-//        children.push_back(Node(newS, 0.0, node.name + std::to_string(max_id + 1)));
-//    }
-//    return children;
-//}
-
-std::vector<Node> generate_children(
+ChildGenerationResult generate_children(
     const Node& node,
     const std::vector<int>& parts,
     double machine_area,
     const std::vector<double>& part_areas
 ) {
-    // 提取已分配零件
     std::unordered_set<int> assigned;
-    assigned.reserve(parts.size());
-    for (const auto& [batch_id, batch_parts] : node.S) {
-        for (int pid : batch_parts) {
-            assigned.insert(pid);
-        }
+    for (const auto& [_, batch_parts] : node.S) {
+        for (int pid : batch_parts) assigned.insert(pid);
     }
 
-    // 收集未分配零件
     std::vector<int> unassigned;
-    unassigned.reserve(parts.size());
     for (int p : parts) {
-        if (assigned.find(p) == assigned.end()) {
-            unassigned.push_back(p);
-        }
+        if (!assigned.count(p)) unassigned.push_back(p);
     }
 
     const int n = static_cast<int>(unassigned.size());
-    if (n == 0) return {};
+    if (n == 0) return { {}, 0 };
 
     std::vector<Node> children;
-    children.reserve((1u << n) - 1);  // 最多 2^n - 1 个子集
+    children.reserve((1u << n) - 1);
+    int pruned_count = 0;
 
-    // 获取当前最大批次编号
     int max_batch_id = -1;
-    for (const auto& [batch_id, _] : node.S) {
-        if (batch_id > max_batch_id) max_batch_id = batch_id;
+    for (const auto& [bid, _] : node.S) {
+        max_batch_id = std::max(max_batch_id, bid);
     }
 
-    // 枚举所有非空子集（不剪枝，保持全遍历）
+    int child_index = 0;
+
     for (unsigned mask = 1; mask < (1u << n); ++mask) {
-        double total_area = 0.0;
+        double area = 0.0;
         std::vector<int> subset;
-        subset.reserve(n);
 
         for (int i = 0; i < n; ++i) {
             if (mask & (1u << i)) {
-                int part_id = unassigned[i];
-                double area = part_areas[part_id];
-                total_area += area;
-                if (total_area > machine_area) break;
-                subset.push_back(part_id);
+                int pid = unassigned[i];
+                area += part_areas[pid];
+                if (area > machine_area) break;
+                subset.push_back(pid);
             }
         }
 
-        if (total_area > machine_area) continue;
+        if (area > machine_area) {
+            ++pruned_count;
+            continue;
+        }
 
-        auto new_S = node.S;
-        new_S[max_batch_id + 1] = std::move(subset);
-        children.emplace_back(std::move(new_S), 0.0, node.name + std::to_string(max_batch_id + 1));
+        auto newS = node.S;
+        newS[max_batch_id + 1] = subset;
+
+        std::string child_name = node.name + "_" + std::to_string(child_index++);
+
+        children.emplace_back(
+            std::move(newS),
+            0.0,
+            child_name,
+            node.completion_time,
+            node.total_tardiness
+        );
     }
 
-    return children;
+    return { children, pruned_count };
 }
+
+
 
 
 
@@ -295,6 +248,107 @@ double compute_total_lower_bound(
 
     return tard_assigned + tard_unassigned;
 }
+//======================完成时间计算=============================
+std::unordered_map<int, double> compute_completion_times(
+    const Node& node,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+) {
+    std::unordered_map<int, double> comp_times;
+
+    // 查找最新生成的批次（编号最大）
+    if (node.S.empty()) return comp_times;
+
+    int max_batch_id = -1;
+    for (const auto& [bid, _] : node.S) {
+        max_batch_id = std::max(max_batch_id, bid);
+    }
+
+    const auto& part_ids = node.S.at(max_batch_id);
+
+    // 计算体积与最大高度
+    double vol = 0.0, mh = 0.0;
+    for (int pid : part_ids) {
+        vol += v[pid];
+        mh = std::max(mh, h[pid]);
+    }
+
+    // 计算加工时间
+    double PT = ST[0] + VT[0] * vol + UT[0] * mh;
+    double start_time = node.completion_time;
+
+    for (int pid : part_ids) {
+        comp_times[pid] = start_time + PT;
+    }
+
+    return comp_times;
+}
+
+//=======================已分配零件总延迟===================
+double compute_assigned_tardiness(
+    const Node& node,
+    const std::vector<double>& D
+) {
+    if (node.S.empty()) return node.total_tardiness;
+
+    // 查找最新批次（编号最大）
+    int max_batch_id = -1;
+    for (const auto& [bid, _] : node.S) {
+        max_batch_id = std::max(max_batch_id, bid);
+    }
+
+    const std::vector<int>& part_ids = node.S.at(max_batch_id);
+
+    // 已知 node.completion_time 是该批次的完成时间，直接使用
+    double new_completion_time = node.completion_time;
+
+    double tardiness = 0.0;
+    for (int pid : part_ids) {
+        tardiness += std::max(0.0, new_completion_time - D[pid]);
+    }
+
+    return node.total_tardiness + tardiness;
+}
+
+//=======================未分配零件总延迟下界估计====================
+double compute_unassigned_lower_bound(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+) {
+    // 找出已分配的零件
+    std::unordered_set<int> assigned;
+    for (const auto& [_, part_ids] : node.S) {
+        for (int pid : part_ids) {
+            assigned.insert(pid);
+        }
+    }
+
+    // 初始化未分配部分的延迟估计
+    double unassigned_tardiness = 0.0;
+
+    for (int p : parts) {
+        if (assigned.find(p) == assigned.end()) {
+            // 对每个未分配零件，估算加工时间并独立批次处理
+            double pt = ST[0] + VT[0] * v[p] + UT[0] * h[p];
+            double c = node.completion_time + pt;  // 假设从当前时间并行开始
+            unassigned_tardiness += std::max(0.0, c - D[p]);
+        }
+    }
+
+    // 返回当前延迟 + 未来估计
+    return node.total_tardiness + unassigned_tardiness;
+}
+
+
 
 
 //========================Branch and Bound（无任何调试输出）========================
@@ -335,8 +389,8 @@ std::pair<Node, Stats> branch_and_cut(
         return cnt == parts.size();
         };
 
-    Node best(initial_S, 0.0, "Best");
-    Node root(std::unordered_map<int, std::vector<int> >(), 0.0, "Root");
+    Node best(initial_S, 0.0, "Best", 0.0, 0.0);
+    Node root({}, 0.0, "Root", 0.0, 0.0);  // 修复初始化
     root.LB = compute_total_lower_bound(root, parts, D, ST, VT, UT, h, v);
 
     std::deque<Node> stack;
@@ -394,18 +448,48 @@ std::pair<Node, Stats> branch_and_cut(
         }
 
         // 展开子节点
-        std::vector<Node> kids = generate_children(cur, parts, machine_area, part_areas);
+        auto [kids, pruned] = generate_children(cur, parts, machine_area, part_areas);
         stats.generated_nodes += kids.size();
-        for (std::size_t i = 0; i < kids.size(); ++i) {
-            kids[i].LB = compute_total_lower_bound(kids[i], parts, D, ST, VT, UT, h, v);
-            if (kids[i].LB < UB) {
-                stack.push_back(kids[i]);
-                
+        stats.area_pruned_nodes += pruned;
+        for (auto& child : kids) {
+            // 1. 计算新增批次完成时间
+            auto comp_times = compute_completion_times(child, ST, VT, UT, h, v);
+            if (!comp_times.empty()) {
+                child.completion_time = comp_times.begin()->second;
+            }
+
+            // 2. 基于当前批次，更新累计已分配零件的延迟
+            child.total_tardiness = compute_assigned_tardiness(child, D);
+
+            // 3. 基于更新后的 completion_time 和 total_tardiness 估算下界
+            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+
+            // 添加日志记录（检验增量下界）
+            if (log_stream.is_open()) {
+                log_stream << "\n======= Node " << child.name << " =======\n";
+                log_stream << "completion_time: " << child.completion_time << "\n";
+                log_stream << "total_tardiness: " << child.total_tardiness << "\n";
+                log_stream << "LB: " << child.LB << "\n";
+                log_stream << "Batches\n";
+                for (const auto& [bid, plist] : child.S) {
+                    log_stream << "  batch " << bid << ": ";
+                    for (int pid : plist) {
+                        log_stream << pid << " ";
+                    }
+                    log_stream << "\n";
+                }
+                log_stream << "==============================\n";
+            }
+
+            // 4. 剪枝判断
+            if (child.LB < UB) {
+                stack.push_back(child);
             }
             else {
                 ++stats.LB_pruned_nodes;
             }
         }
+
     }
 
     return std::make_pair(best, stats);
@@ -420,7 +504,7 @@ std::ofstream log_stream;
 
 std::string get_log_filename(const std::string& input_filename) {
     std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = "logs/";
+    std::string log_dir = "logs_OriginLB/";
     fs::create_directories(log_dir);  // 创建 logs 目录（若不存在）
 
     int count = 1;
