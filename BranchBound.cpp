@@ -189,65 +189,6 @@ ChildGenerationResult generate_children(
     return { children, pruned_count };
 }
 
-
-
-
-
-//===========================下界计算（完全无输出）==============================
-double compute_total_lower_bound(
-    const Node& node,
-    const std::vector<int>& parts,
-    const std::vector<double>& D,
-    const std::vector<double>& ST,
-    const std::vector<double>& VT,
-    const std::vector<double>& UT,
-    const std::vector<double>& h,
-    const std::vector<double>& v
-) {
-    double time_cursor = 0.0;
-    double tard_assigned = 0.0;
-
-    // 已分配
-    std::unordered_map<int, double> comp;
-    comp.reserve(parts.size());
-    for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = node.S.begin();
-        it != node.S.end(); ++it) {
-        double vol = 0.0, mh = 0.0;
-        for (std::size_t j = 0; j < it->second.size(); ++j) {
-            vol += v[it->second[j]];
-            if (h[it->second[j]] > mh) mh = h[it->second[j]];
-        }
-        double PT = ST[0] + VT[0] * vol + UT[0] * mh;
-        for (std::size_t j = 0; j < it->second.size(); ++j) {
-            comp[it->second[j]] = time_cursor + PT;
-        }
-        time_cursor += PT;
-    }
-    for (typename std::unordered_map<int, double>::const_iterator it = comp.begin(); it != comp.end(); ++it) {
-        tard_assigned += std::max(0.0, it->second - D[it->first]);
-    }
-
-    // 未分配并行下界
-    double tard_unassigned = 0.0;
-    std::unordered_set<int> assigned;
-    assigned.reserve(parts.size());
-    for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = node.S.begin();
-        it != node.S.end(); ++it) {
-        for (std::size_t j = 0; j < it->second.size(); ++j) {
-            assigned.insert(it->second[j]);
-        }
-    }
-    for (std::size_t i = 0; i < parts.size(); ++i) {
-        int p = parts[i];
-        if (assigned.find(p) == assigned.end()) {
-            double pt = ST[0] + VT[0] * v[p] + UT[0] * h[p];
-            double c = time_cursor + pt;
-            tard_unassigned += std::max(0.0, c - D[p]);
-        }
-    }
-
-    return tard_assigned + tard_unassigned;
-}
 //======================完成时间计算=============================
 std::unordered_map<int, double> compute_completion_times(
     const Node& node,
