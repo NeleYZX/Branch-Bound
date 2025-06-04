@@ -76,16 +76,17 @@ std::pair<BatchMap, double> generateInitialSolution(
 
 //===========================Node 定义===============================
 Node::Node()
-    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N") {
+    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N") ,depth(0){
 }
 
 Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     double LB_,
     const std::string& name_,
     double completion_time_,
-    double total_tardiness_)
+    double total_tardiness_,
+    int depth_)
     : S(S_), LB(LB_), name(name_),
-    completion_time(completion_time_), total_tardiness(total_tardiness_) {
+    completion_time(completion_time_), total_tardiness(total_tardiness_), depth(depth_) {
     update_cached_fields();  // 自动构建缓存字段
 }
 
@@ -175,8 +176,8 @@ ChildGenerationResult generate_children(
 
         std::string child_name = node.name + "_" + std::to_string(child_index++);
 
-        Node child(newS, 0.0, child_name, node.completion_time, node.total_tardiness);
-        // ✅ 自动更新 assigned_parts 和 last_batch_id
+        Node child(newS, 0.0, child_name, node.completion_time, node.total_tardiness, node.depth + 1);
+        // 自动更新 assigned_parts 和 last_batch_id
         child.update_cached_fields();
 
         children.push_back(std::move(child));
@@ -300,8 +301,8 @@ std::pair<Node, Stats> branch_and_cut(
         return nd.assigned_parts.size() == parts.size();
         };
 
-    Node best(initial_S, 0.0, "Best", 0.0, 0.0);
-    Node root({}, 0.0, "Root", 0.0, 0.0);  // 修复初始化
+    Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
+    Node root({}, 0.0, "Root", 0.0, 0.0, 0);  // 修复初始化
     //root.LB = compute_total_lower_bound(root, parts, D, ST, VT, UT, h, v);
 
     std::deque<Node> stack;
@@ -338,12 +339,14 @@ std::pair<Node, Stats> branch_and_cut(
         }
         if (bad) {
             ++stats.U_pruned_nodes;
+            ++stats.pruned_nodes_per_depth[cur.depth];
             continue;
         }
 
         // LB 剪枝
         if (cur.LB >= UB) {
             ++stats.LB_pruned_nodes;
+            ++stats.pruned_nodes_per_depth[cur.depth];
             continue;
         }
 
@@ -383,6 +386,7 @@ std::pair<Node, Stats> branch_and_cut(
             }
             else {
                 ++stats.LB_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
             }
         }
     }

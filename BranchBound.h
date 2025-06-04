@@ -22,12 +22,11 @@ struct Node {
     double completion_time = 0.0;
     double total_tardiness = 0.0;
     std::string name;
+    int depth;
 
     // 缓存字段
     int last_batch_id = -1;
     std::unordered_set<int> assigned_parts;
-
-    int depth = 0;
 
     // 默认构造
     Node();
@@ -37,7 +36,7 @@ struct Node {
         double LB_,
         const std::string& name_,
         double completion_time_,
-        double total_tardiness_);
+        double total_tardiness_, int depth_);
 
     // 更新缓存字段（构造后或修改 S 后调用）
     void update_cached_fields();
@@ -110,6 +109,7 @@ struct Stats {
     int LB_pruned_nodes = 0;
     int U_pruned_nodes = 0;
     int leaf_nodes = 0;
+    std::unordered_map<int, int> pruned_nodes_per_depth;
 };
 
 std::pair<Node, Stats> branch_and_cut(
@@ -149,4 +149,5 @@ void log_and_cout(const T& msg) {
         log_stream << msg;
     }
 }
+
 #endif // BRANCH_BOUND_H
