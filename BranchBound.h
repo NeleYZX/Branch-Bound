@@ -6,6 +6,7 @@
 #include <set>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <deque>
 #include <string>
 #include <utility>
@@ -14,32 +15,42 @@
 #include <filesystem>
 
 //===================节点定义=======================
-class Node {
-public:
-    // 每个批次对应的零件列表
+struct Node {
     std::unordered_map<int, std::vector<int>> S;
-    double LB;            // 当前节点的下界
-    double completion_time;     // 当前累计完成时间
-    double total_tardiness;     // 当前已产生总延迟
-    std::string name;     // 节点名称
 
+    double LB = 0.0;
+    double completion_time = 0.0;
+    double total_tardiness = 0.0;
+    std::string name;
+
+    // 缓存字段
+    int last_batch_id = -1;
+    std::unordered_set<int> assigned_parts;
+
+    // 默认构造
     Node();
+
+    // 自定义构造（用于子节点构造）
     Node(const std::unordered_map<int, std::vector<int>>& S_,
         double LB_,
-        const std::string& name_ = "N",
-        double completion_time_ = 0.0,
-        double total_tardiness_ = 0.0);
+        const std::string& name_,
+        double completion_time_,
+        double total_tardiness_);
 
+    // 更新缓存字段（构造后或修改 S 后调用）
+    void update_cached_fields();
+
+    // 相等判断（用于搜索结构）
     bool operator==(const Node& other) const;
 
-    friend std::ostream& operator<<(std::ostream& os, const Node& node);
-
+    // 哈希函数支持
     struct Hash {
         std::size_t operator()(const Node& node) const;
     };
 };
 
-//std::ostream& operator<<(std::ostream& os, const Node& node);
+// 输出重载
+std::ostream& operator<<(std::ostream& os, const Node& node);
 
 //========================生成初始解==============================
 typedef std::map<int, std::set<int>> BatchMap;
@@ -63,8 +74,6 @@ struct ChildGenerationResult {
     std::vector<Node> children;
     int pruned_count;
 };
-
-
 //std::vector<Node> generate_children(
 //    const Node& node,
 //    const std::vector<int>& parts,

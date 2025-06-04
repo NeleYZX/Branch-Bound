@@ -86,6 +86,16 @@ Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     double total_tardiness_)
     : S(S_), LB(LB_), name(name_),
     completion_time(completion_time_), total_tardiness(total_tardiness_) {
+    update_cached_fields();  // 自动构建缓存字段
+}
+
+void Node::update_cached_fields() {
+    assigned_parts.clear();
+    last_batch_id = -1;
+    for (const auto& [batch_id, plist] : S) {
+        last_batch_id = std::max(last_batch_id, batch_id);
+        assigned_parts.insert(plist.begin(), plist.end());
+    }
 }
 
 bool Node::operator==(const Node& other) const {
@@ -94,12 +104,10 @@ bool Node::operator==(const Node& other) const {
 
 std::size_t Node::Hash::operator()(const Node& node) const {
     std::size_t seed = 0;
-    for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = node.S.begin();
-        it != node.S.end(); ++it) {
-        std::size_t h1 = std::hash<int>()(it->first);
-        for (std::size_t i = 0; i < it->second.size(); ++i) {
-            h1 ^= std::hash<int>()(it->second[i])
-                + 0x9e3779b9 + (h1 << 6) + (h1 >> 2);
+    for (const auto& [batch_id, plist] : node.S) {
+        std::size_t h1 = std::hash<int>()(batch_id);
+        for (int pid : plist) {
+            h1 ^= std::hash<int>()(pid) + 0x9e3779b9 + (h1 << 6) + (h1 >> 2);
         }
         seed ^= h1 + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
@@ -110,12 +118,11 @@ std::ostream& operator<<(std::ostream& os, const Node& node) {
     os << "Node(" << node.name << "):\n";
     os << "  LB = " << node.LB << "\n";
     os << "  S = {\n";
-    for (const auto& pair : node.S) {
-        os << "    Batch " << pair.first << ": [";
-        for (size_t i = 0; i < pair.second.size(); ++i) {
-            os << pair.second[i];
-            if (i != pair.second.size() - 1)
-                os << ", ";
+    for (const auto& [bid, plist] : node.S) {
+        os << "    Batch " << bid << ": [";
+        for (size_t i = 0; i < plist.size(); ++i) {
+            os << plist[i];
+            if (i + 1 < plist.size()) os << ", ";
         }
         os << "]\n";
     }
@@ -130,14 +137,11 @@ ChildGenerationResult generate_children(
     double machine_area,
     const std::vector<double>& part_areas
 ) {
-    std::unordered_set<int> assigned;
-    for (const auto& [_, batch_parts] : node.S) {
-        for (int pid : batch_parts) assigned.insert(pid);
-    }
-
     std::vector<int> unassigned;
     for (int p : parts) {
-        if (!assigned.count(p)) unassigned.push_back(p);
+        if (!node.assigned_parts.count(p)) {
+            unassigned.push_back(p);
+        }
     }
 
     const int n = static_cast<int>(unassigned.size());
@@ -146,12 +150,6 @@ ChildGenerationResult generate_children(
     std::vector<Node> children;
     children.reserve((1u << n) - 1);
     int pruned_count = 0;
-
-    int max_batch_id = -1;
-    for (const auto& [bid, _] : node.S) {
-        max_batch_id = std::max(max_batch_id, bid);
-    }
-
     int child_index = 0;
 
     for (unsigned mask = 1; mask < (1u << n); ++mask) {
@@ -173,17 +171,15 @@ ChildGenerationResult generate_children(
         }
 
         auto newS = node.S;
-        newS[max_batch_id + 1] = subset;
+        newS[node.last_batch_id + 1] = subset;
 
         std::string child_name = node.name + "_" + std::to_string(child_index++);
 
-        children.emplace_back(
-            std::move(newS),
-            0.0,
-            child_name,
-            node.completion_time,
-            node.total_tardiness
-        );
+        Node child(newS, 0.0, child_name, node.completion_time, node.total_tardiness);
+        // ✅ 自动更新 assigned_parts 和 last_batch_id
+        child.update_cached_fields();
+
+        children.push_back(std::move(child));
     }
 
     return { children, pruned_count };
@@ -201,22 +197,16 @@ std::unordered_map<int, double> compute_completion_times(
 ) {
     std::unordered_map<int, double> comp_times;
 
-    if (node.S.empty()) return comp_times;
+    if (node.S.empty() || node.last_batch_id < 0) return comp_times;
 
-    // 找最大编号批次（只需保留当前新增的）
-    auto last_batch_it = std::max_element(
-        node.S.begin(), node.S.end(),
-        [](const auto& a, const auto& b) { return a.first < b.first; }
-    );
+    const auto& part_ids = node.S.at(node.last_batch_id);
 
-    const auto& part_ids = last_batch_it->second;
-
-    // 内联计算 PT
     double vol = 0.0, mh = 0.0;
     for (int pid : part_ids) {
         vol += v[pid];
         mh = std::max(mh, h[pid]);
     }
+
     double PT = ST[0] + VT[0] * vol + UT[0] * mh;
     double completion_time = node.completion_time;
 
@@ -227,56 +217,46 @@ std::unordered_map<int, double> compute_completion_times(
     return comp_times;
 }
 
+
 //=======================已分配零件总延迟===================
 double compute_assigned_tardiness(
     const Node& node,
     const std::vector<double>& D
 ) {
-    if (node.S.empty()) return 0.0;
+    if (node.S.empty() || node.last_batch_id < 0) return 0.0;
 
-    auto last_batch_it = std::max_element(
-        node.S.begin(), node.S.end(),
-        [](const auto& a, const auto& b) { return a.first < b.first; }
-    );
-
-    const auto& part_ids = last_batch_it->second;
-    double completion_time = node.completion_time;
+    const auto& part_ids = node.S.at(node.last_batch_id);
     double tardiness = 0.0;
 
     for (int pid : part_ids) {
-        tardiness += std::max(0.0, completion_time - D[pid]);
+        tardiness += std::max(0.0, node.completion_time - D[pid]);
     }
 
     return node.total_tardiness + tardiness;
 }
+
 
 //=======================未分配零件总延迟下界估计====================
 double compute_unassigned_lower_bound(
     const Node& node,
     const std::vector<int>& parts,
     const std::vector<double>& D,
-    const std::vector<double>& cached_PT  // 改为缓存值
+    const std::vector<double>& cached_PT
 ) {
-    std::unordered_set<int> assigned;
-    for (const auto& [_, plist] : node.S) {
-        for (int pid : plist) {
-            assigned.insert(pid);
-        }
-    }
-
     double est_tardiness = 0.0;
     double start_time = node.completion_time;
 
     for (int pid : parts) {
-        if (assigned.count(pid)) continue;
+        if (node.assigned_parts.count(pid)) continue;
 
-        double pt = cached_PT[pid];  // 查询缓存
+        double pt = cached_PT[pid];
         double c = start_time + pt;
         est_tardiness += std::max(0.0, c - D[pid]);
     }
 
     return node.total_tardiness + est_tardiness;
 }
+
 
 
 
@@ -316,13 +296,8 @@ std::pair<Node, Stats> branch_and_cut(
     }
 
     // 判断是否全分配
-    auto all_assigned = [&](const Node& nd)->bool {
-        std::size_t cnt = 0;
-        for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = nd.S.begin();
-            it != nd.S.end(); ++it) {
-            cnt += it->second.size();
-        }
-        return cnt == parts.size();
+    auto all_assigned = [&](const Node& nd) -> bool {
+        return nd.assigned_parts.size() == parts.size();
         };
 
     Node best(initial_S, 0.0, "Best", 0.0, 0.0);
@@ -388,16 +363,18 @@ std::pair<Node, Stats> branch_and_cut(
         stats.generated_nodes += kids.size();
         stats.area_pruned_nodes += pruned;
         for (auto& child : kids) {
-            // 1. 计算新增批次完成时间
+            // 自动缓存更新：在构造时已调用 update_cached_fields
+
+            // 1. 完成时间
             auto comp_times = compute_completion_times(child, ST, VT, UT, h, v);
             if (!comp_times.empty()) {
                 child.completion_time = comp_times.begin()->second;
             }
 
-            // 2. 基于当前批次，更新累计已分配零件的延迟
+            // 2. 更新已分配零件延迟
             child.total_tardiness = compute_assigned_tardiness(child, D);
 
-            // 3. 基于更新后的 completion_time 和 total_tardiness 估算下界
+            // 3. 下界估计
             child.LB = compute_unassigned_lower_bound(child, parts, D, cached_PT);
 
             // 4. 剪枝判断
@@ -408,7 +385,6 @@ std::pair<Node, Stats> branch_and_cut(
                 ++stats.LB_pruned_nodes;
             }
         }
-
     }
 
     return std::make_pair(best, stats);
@@ -423,7 +399,7 @@ std::ofstream log_stream;
 
 std::string get_log_filename(const std::string& input_filename) {
     std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = "logs_IncrementalLB/";
+    std::string log_dir = "logs_IncrementalLB_nodeS/";
     fs::create_directories(log_dir);  // 创建 logs 目录（若不存在）
 
     int count = 1;
