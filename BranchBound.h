@@ -109,7 +109,9 @@ struct Stats {
     int LB_pruned_nodes = 0;
     int U_pruned_nodes = 0;
     int leaf_nodes = 0;
-    std::unordered_map<int, int> pruned_nodes_per_depth;
+    std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
+    std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
+    std::vector<std::pair<double, double>> LB_convergence;   // <时间戳, 当前最小LB>
 };
 
 std::pair<Node, Stats> branch_and_cut(
@@ -130,24 +132,5 @@ std::pair<Node, Stats> branch_and_cut(
     double time_limit_seconds,
     const std::string& path
 );
-
-//=======================数据记录====================
-// 获取日志文件名（避免覆盖）
-std::string get_log_filename(const std::string& input_filename);
-
-// 全局日志输出对象
-extern std::ofstream log_stream;
-
-// 写入 UTF-8 BOM 到日志文件开头
-void write_utf8_bom(std::ofstream& stream);
-
-// 同时输出到控制台和日志文件
-template <typename T>
-void log_and_cout(const T& msg) {
-    std::cout << msg;
-    if (log_stream.is_open()) {
-        log_stream << msg;
-    }
-}
 
 #endif // BRANCH_BOUND_H
