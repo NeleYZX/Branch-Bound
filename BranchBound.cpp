@@ -335,12 +335,35 @@ std::pair<Node, Stats> branch_and_cut(
     stack.push_back(root);
 
     auto t0 = std::chrono::steady_clock::now();
+    if (UB > 0 && UB < std::numeric_limits<double>::infinity()) {
+        stats.UB_updates.emplace_back(0.0, UB);
+        stats.LB_convergence.emplace_back(0.0, root.LB);
+
+    }
 
     while (!stack.empty()) {
         auto t1 = std::chrono::steady_clock::now();
         double elapsed = std::chrono::duration<double>(t1 - t0).count();
         if (time_limit_seconds > 0.0 && elapsed > time_limit_seconds) {
             break;
+        }
+
+        if (!stack.empty()) {
+            double timestamp = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            double min_LB = std::numeric_limits<double>::infinity();
+            for (const Node& nd : stack) {
+                if (nd.LB < min_LB) {
+                    min_LB = nd.LB;
+                }
+            }
+
+            // 判断是否超过 UB
+            if (min_LB >= UB) {
+                min_LB = UB;
+            }
+            if (min_LB >= 0.0 && min_LB < std::numeric_limits<double>::infinity()) {
+                stats.LB_convergence.emplace_back(timestamp, min_LB);
+            }
         }
 
         Node cur = stack.back();
@@ -365,12 +388,14 @@ std::pair<Node, Stats> branch_and_cut(
         }
         if (bad) {
             ++stats.U_pruned_nodes;
+            ++stats.pruned_nodes_per_depth[cur.depth];
             continue;
         }
 
         // LB 剪枝
         if (cur.LB >= UB) {
             ++stats.LB_pruned_nodes;
+            ++stats.pruned_nodes_per_depth[cur.depth];
             continue;
         }
 
@@ -381,6 +406,8 @@ std::pair<Node, Stats> branch_and_cut(
                 UB = cur.LB;
                 best = cur;
                 ++stats.updated_solutions;
+                double timestamp = std::chrono::duration<double>(t1 - t0).count();
+                stats.UB_updates.emplace_back(timestamp, UB);
             }
             continue;
         }
@@ -408,6 +435,7 @@ std::pair<Node, Stats> branch_and_cut(
             }
             else {
                 ++stats.LB_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
             }
         }
 
@@ -416,29 +444,3 @@ std::pair<Node, Stats> branch_and_cut(
     return std::make_pair(best, stats);
 }
 
-
-//==========================数据记录================================
-namespace fs = std::filesystem;
-
-// 定义全局日志流对象
-std::ofstream log_stream;
-
-std::string get_log_filename(const std::string& input_filename) {
-    std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = "logs_IncrementalLB/";
-    fs::create_directories(log_dir);  // 创建 logs 目录（若不存在）
-
-    int count = 1;
-    std::string log_filename;
-    do {
-        log_filename = log_dir + base + "_log_" + std::to_string(count) + ".txt";
-        count++;
-    } while (fs::exists(log_filename));
-
-    return log_filename;
-}
-
-void write_utf8_bom(std::ofstream& stream) {
-    // 写入 UTF-8 BOM: EF BB BF
-    stream << "\xEF\xBB\xBF";
-}
