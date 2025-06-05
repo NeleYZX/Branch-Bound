@@ -18,19 +18,19 @@ class Node {
 public:
     // 每个批次对应的零件列表
     std::unordered_map<int, std::vector<int>> S;
-    double LB;            // 当前节点的下界
-    double completion_time;     // 当前累计完成时间
-    double total_tardiness;     // 当前已产生总延迟
+    double LB = 0.0;            // 当前节点的下界
+    double completion_time=0.0;     // 当前累计完成时间
+    double total_tardiness = 0.0;     // 当前已产生总延迟
     std::string name;     // 节点名称
     int depth;
 
     Node();
     Node(const std::unordered_map<int, std::vector<int>>& S_,
         double LB_,
-        const std::string& name_ = "N",
-        double completion_time_ = 0.0,
-        double total_tardiness_ = 0.0,
-        int depth_ = 0);
+        const std::string& name_ ,
+        double completion_time_,
+        double total_tardiness_,
+        int depth_);
 
     bool operator==(const Node& other) const;
 
