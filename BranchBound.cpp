@@ -1,4 +1,5 @@
 ﻿#include "BranchBound.h"
+#include "DataRecord.h"
 #include <algorithm>
 #include <chrono>
 #include <limits>
@@ -76,16 +77,17 @@ std::pair<BatchMap, double> generateInitialSolution(
 
 //===========================Node 定义===============================
 Node::Node()
-    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N") {
+    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"),depth(0) {
 }
 
 Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     double LB_,
     const std::string& name_,
     double completion_time_,
-    double total_tardiness_)
+    double total_tardiness_,
+    int depth_)
     : S(S_), LB(LB_), name(name_),
-    completion_time(completion_time_), total_tardiness(total_tardiness_) {
+    completion_time(completion_time_), total_tardiness(total_tardiness_) ,depth(depth_){
 }
 
 bool Node::operator==(const Node& other) const {
@@ -182,7 +184,8 @@ ChildGenerationResult generate_children(
             0.0,
             child_name,
             node.completion_time,
-            node.total_tardiness
+            node.total_tardiness,
+            node.depth + 1
         );
     }
 
@@ -330,14 +333,19 @@ std::pair<Node, Stats> branch_and_cut(
         return cnt == parts.size();
         };
 
-    Node best(initial_S, 0.0, "Best", 0.0, 0.0);
-    Node root({}, 0.0, "Root", 0.0, 0.0);  // 修复初始化
-    root.LB = compute_total_lower_bound(root, parts, D, ST, VT, UT, h, v);
+    Node best(initial_S, 0.0, "Best", 0.0, 0.0,0);
+    Node root({}, 0.0, "Root", 0.0, 0.0,0);  // 修复初始化
+    root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
 
     std::deque<Node> stack;
     stack.push_back(root);
 
     auto t0 = std::chrono::steady_clock::now();
+    if (UB > 0 && UB < std::numeric_limits<double>::infinity()) {
+        stats.UB_updates.emplace_back(0.0, UB);
+        stats.LB_convergence.emplace_back(0.0, root.LB);
+
+    }
 
     while (!stack.empty()) {
         auto t1 = std::chrono::steady_clock::now();
@@ -345,6 +353,26 @@ std::pair<Node, Stats> branch_and_cut(
         if (time_limit_seconds > 0.0 && elapsed > time_limit_seconds) {
             break;
         }
+
+
+        if (!stack.empty()) {
+            double timestamp = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            double min_LB = std::numeric_limits<double>::infinity();
+            for (const Node& nd : stack) {
+                if (nd.LB < min_LB) {
+                    min_LB = nd.LB;
+                }
+            }
+
+            // 判断是否超过 UB
+            if (min_LB >= UB) {
+                min_LB = UB;
+            }
+            if (min_LB >= 0.0 && min_LB < std::numeric_limits<double>::infinity()) {
+                stats.LB_convergence.emplace_back(timestamp, min_LB);
+            }
+        }
+
 
         Node cur = stack.back();
         stack.pop_back();
@@ -368,12 +396,14 @@ std::pair<Node, Stats> branch_and_cut(
         }
         if (bad) {
             ++stats.U_pruned_nodes;
+            ++stats.pruned_nodes_per_depth[cur.depth];
             continue;
         }
 
         // LB 剪枝
         if (cur.LB >= UB) {
             ++stats.LB_pruned_nodes;
+            ++stats.pruned_nodes_per_depth[cur.depth];
             continue;
         }
 
@@ -384,6 +414,8 @@ std::pair<Node, Stats> branch_and_cut(
                 UB = cur.LB;
                 best = cur;
                 ++stats.updated_solutions;
+                double timestamp = std::chrono::duration<double>(t1 - t0).count();
+                stats.UB_updates.emplace_back(timestamp, UB);
             }
             continue;
         }
@@ -405,22 +437,22 @@ std::pair<Node, Stats> branch_and_cut(
             // 3. 基于更新后的 completion_time 和 total_tardiness 估算下界
             child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
 
-            // 添加日志记录（检验增量下界）
-            if (log_stream.is_open()) {
-                log_stream << "\n======= Node " << child.name << " =======\n";
-                log_stream << "completion_time: " << child.completion_time << "\n";
-                log_stream << "total_tardiness: " << child.total_tardiness << "\n";
-                log_stream << "LB: " << child.LB << "\n";
-                log_stream << "Batches\n";
-                for (const auto& [bid, plist] : child.S) {
-                    log_stream << "  batch " << bid << ": ";
-                    for (int pid : plist) {
-                        log_stream << pid << " ";
-                    }
-                    log_stream << "\n";
-                }
-                log_stream << "==============================\n";
-            }
+            //// 添加日志记录（检验增量下界）
+            //if (log_stream.is_open()) {
+            //    log_stream << "\n======= Node " << child.name << " =======\n";
+            //    log_stream << "completion_time: " << child.completion_time << "\n";
+            //    log_stream << "total_tardiness: " << child.total_tardiness << "\n";
+            //    log_stream << "LB: " << child.LB << "\n";
+            //    log_stream << "Batches\n";
+            //    for (const auto& [bid, plist] : child.S) {
+            //        log_stream << "  batch " << bid << ": ";
+            //        for (int pid : plist) {
+            //            log_stream << pid << " ";
+            //        }
+            //        log_stream << "\n";
+            //    }
+            //    log_stream << "==============================\n";
+            //}
 
             // 4. 剪枝判断
             if (child.LB < UB) {
@@ -428,6 +460,7 @@ std::pair<Node, Stats> branch_and_cut(
             }
             else {
                 ++stats.LB_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
             }
         }
 
@@ -437,28 +470,3 @@ std::pair<Node, Stats> branch_and_cut(
 }
 
 
-//==========================数据记录================================
-namespace fs = std::filesystem;
-
-// 定义全局日志流对象
-std::ofstream log_stream;
-
-std::string get_log_filename(const std::string& input_filename) {
-    std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = "logs_OriginLB/";
-    fs::create_directories(log_dir);  // 创建 logs 目录（若不存在）
-
-    int count = 1;
-    std::string log_filename;
-    do {
-        log_filename = log_dir + base + "_log_" + std::to_string(count) + ".txt";
-        count++;
-    } while (fs::exists(log_filename));
-
-    return log_filename;
-}
-
-void write_utf8_bom(std::ofstream& stream) {
-    // 写入 UTF-8 BOM: EF BB BF
-    stream << "\xEF\xBB\xBF";
-}
