@@ -361,9 +361,15 @@ std::pair<Node, Stats> branch_and_cut(
             if (min_LB >= UB) {
                 min_LB = UB;
             }
+            static constexpr double epsilon = 1e-10;  // 用于浮点比较的容差
+
+            // 只记录不同的 LB（避免重复）
             if (min_LB >= 0.0 && min_LB < std::numeric_limits<double>::infinity()) {
-                stats.LB_convergence.emplace_back(timestamp, min_LB);
+                if (stats.LB_convergence.empty() || std::abs(min_LB - stats.LB_convergence.back().second) > epsilon) {
+                    stats.LB_convergence.emplace_back(timestamp, min_LB);
+                }
             }
+
         }
 
         Node cur = stack.back();
