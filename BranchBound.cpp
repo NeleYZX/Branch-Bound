@@ -76,16 +76,17 @@ std::pair<BatchMap, double> generateInitialSolution(
 
 //===========================Node 定义===============================
 Node::Node()
-    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N") {
+    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"),depth(0) {
 }
 
 Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     double LB_,
     const std::string& name_,
     double completion_time_,
-    double total_tardiness_)
+    double total_tardiness_,
+    int depth_)
     : S(S_), LB(LB_), name(name_),
-    completion_time(completion_time_), total_tardiness(total_tardiness_) {
+    completion_time(completion_time_), total_tardiness(total_tardiness_), depth(depth_){
 }
 
 bool Node::operator==(const Node& other) const {
@@ -182,7 +183,8 @@ ChildGenerationResult generate_children(
             0.0,
             child_name,
             node.completion_time,
-            node.total_tardiness
+            node.total_tardiness,
+            node.depth + 1
         );
     }
 
@@ -325,9 +327,9 @@ std::pair<Node, Stats> branch_and_cut(
         return cnt == parts.size();
         };
 
-    Node best(initial_S, 0.0, "Best", 0.0, 0.0);
-    Node root({}, 0.0, "Root", 0.0, 0.0);  // 修复初始化
-    //root.LB = compute_total_lower_bound(root, parts, D, ST, VT, UT, h, v);
+    Node best(initial_S, 0.0, "Best", 0.0, 0.0,0);
+    Node root({}, 0.0, "Root", 0.0, 0.0,0);  // 修复初始化
+    root.LB = compute_unassigned_lower_bound(root, parts, D, cached_PT);
 
     std::deque<Node> stack;
     stack.push_back(root);

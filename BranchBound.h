@@ -22,13 +22,15 @@ public:
     double completion_time;     // 当前累计完成时间
     double total_tardiness;     // 当前已产生总延迟
     std::string name;     // 节点名称
+    int depth;
 
     Node();
     Node(const std::unordered_map<int, std::vector<int>>& S_,
         double LB_,
         const std::string& name_ = "N",
         double completion_time_ = 0.0,
-        double total_tardiness_ = 0.0);
+        double total_tardiness_ = 0.0,
+        int depth_);
 
     bool operator==(const Node& other) const;
 
@@ -106,6 +108,9 @@ struct Stats {
     int LB_pruned_nodes = 0;
     int U_pruned_nodes = 0;
     int leaf_nodes = 0;
+    std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
+    std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
+    std::vector<std::pair<double, double>> LB_convergence;   // <时间戳, 当前最小LB>
 };
 
 std::pair<Node, Stats> branch_and_cut(
@@ -145,4 +150,7 @@ void log_and_cout(const T& msg) {
         log_stream << msg;
     }
 }
+
+
+
 #endif // BRANCH_BOUND_H
