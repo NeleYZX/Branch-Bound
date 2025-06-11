@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <vector>
 #include <string>
+#include <queue>
+
 
 //=========================生成初始解（无任何调试输出）=========================
 std::pair<BatchMap, double> generateInitialSolution(
@@ -281,6 +283,13 @@ double compute_unassigned_lower_bound(
 }
 
 
+//比较器
+struct CompareNode {
+    bool operator()(const Node& a, const Node& b) const {
+        return a.LB > b.LB; // 小的 LB 优先
+    }
+};
+
 
 
 //========================Branch and Bound（无任何调试输出）========================
@@ -331,8 +340,8 @@ std::pair<Node, Stats> branch_and_cut(
     Node root({}, 0.0, "Root", 0.0, 0.0,0);  // 修复初始化
     root.LB = compute_unassigned_lower_bound(root, parts, D, cached_PT);
 
-    std::deque<Node> stack;
-    stack.push_back(root);
+    std::priority_queue<Node, std::vector<Node>, CompareNode> stack;
+    stack.push(root);
 
     auto t0 = std::chrono::steady_clock::now();
     if (UB > 0 && UB < std::numeric_limits<double>::infinity()) {
@@ -350,12 +359,8 @@ std::pair<Node, Stats> branch_and_cut(
 
         //if (!stack.empty()) {
         //    double timestamp = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-        //    double min_LB = std::numeric_limits<double>::infinity();
-        //    for (const Node& nd : stack) {
-        //        if (nd.LB < min_LB) {
-        //            min_LB = nd.LB;
-        //        }
-        //    }
+        //    double min_LB = stack.top().LB;
+
 
         //    // 判断是否超过 UB
         //    if (min_LB >= UB) {
@@ -363,7 +368,7 @@ std::pair<Node, Stats> branch_and_cut(
         //    }
         //    static constexpr double epsilon = 1e-10;  // 用于浮点比较的容差
 
-        //    // 只记录不同的 LB（避免重复）
+        //     //只记录不同的 LB（避免重复）
         //    if (min_LB >= 0.0 && min_LB < std::numeric_limits<double>::infinity()) {
         //        if (stats.LB_convergence.empty() || std::abs(min_LB - stats.LB_convergence.back().second) > epsilon) {
         //            stats.LB_convergence.emplace_back(timestamp, min_LB);
@@ -372,8 +377,8 @@ std::pair<Node, Stats> branch_and_cut(
 
         //}
 
-        Node cur = stack.back();
-        stack.pop_back();
+        Node cur = stack.top();
+        stack.pop();
         ++stats.total_nodes;
 
         // 初步不可行剪枝
@@ -437,7 +442,7 @@ std::pair<Node, Stats> branch_and_cut(
 
             // 4. 剪枝判断
             if (child.LB < UB) {
-                stack.push_back(child);
+                stack.push(child);
             }
             else {
                 ++stats.LB_pruned_nodes;
