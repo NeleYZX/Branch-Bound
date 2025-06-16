@@ -6,6 +6,13 @@
 #include <ostream>
 #include <fstream>
 #include <filesystem>
+#include <algorithm>
+#include <chrono>
+#include <limits>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
 #include "BranchBound.h"
 
 //=======================文档数据记录====================
