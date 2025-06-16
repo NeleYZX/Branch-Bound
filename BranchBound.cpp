@@ -317,24 +317,21 @@ std::pair<Node, Stats> branch_and_cut(
     Stats stats;
     double machine_area = L[0] * W[0];
 
-    // 预计算面积
     std::vector<double> part_areas(parts.size(), 0.0);
     for (std::size_t i = 0; i < parts.size(); ++i) {
         part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
     }
 
-    // 判断是否全分配
-    auto all_assigned = [&](const Node& nd)->bool {
+    auto all_assigned = [&](const Node& nd) -> bool {
         std::size_t cnt = 0;
-        for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = nd.S.begin();
-            it != nd.S.end(); ++it) {
-            cnt += it->second.size();
+        for (const auto& it : nd.S) {
+            cnt += it.second.size();
         }
         return cnt == parts.size();
         };
 
-    Node best(initial_S, 0.0, "Best", 0.0, 0.0,0);
-    Node root({}, 0.0, "Root", 0.0, 0.0,0);  // 修复初始化
+    Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
+    Node root({}, 0.0, "Root", 0.0, 0.0, 0);
     root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
 
     std::deque<Node> stack;
@@ -344,62 +341,69 @@ std::pair<Node, Stats> branch_and_cut(
     if (UB > 0 && UB < std::numeric_limits<double>::infinity()) {
         stats.UB_updates.emplace_back(0.0, UB);
         stats.LB_convergence.emplace_back(0.0, root.LB);
-
     }
 
+    // ========== 新增：自适应出栈策略控制 ==========
+    int max_capa = 5000;
+    int min_capa = 2000;
+    bool use_best_first = true;
+    static constexpr double epsilon = 1e-10;
 
     while (!stack.empty()) {
         auto t1 = std::chrono::steady_clock::now();
         double elapsed = std::chrono::duration<double>(t1 - t0).count();
-        if (time_limit_seconds > 0.0 && elapsed > time_limit_seconds) {
-            break;
-        }
+        if (time_limit_seconds > 0.0 && elapsed > time_limit_seconds) break;
 
-
+        // === 实时记录当前最小 LB（用于收敛曲线） ===
         if (!stack.empty()) {
             double timestamp = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
             double min_LB = std::numeric_limits<double>::infinity();
             for (const Node& nd : stack) {
-                if (nd.LB < min_LB) {
-                    min_LB = nd.LB;
-                }
+                if (nd.LB < min_LB) min_LB = nd.LB;
             }
-
-            // 判断是否超过 UB
-            if (min_LB >= UB) {
-                min_LB = UB;
-            }
-            static constexpr double epsilon = 1e-10;  // 用于浮点比较的容差
-
-            // 只记录不同的 LB（避免重复）
+            if (min_LB >= UB) min_LB = UB;
             if (min_LB >= 0.0 && min_LB < std::numeric_limits<double>::infinity()) {
                 if (stats.LB_convergence.empty() || std::abs(min_LB - stats.LB_convergence.back().second) > epsilon) {
                     stats.LB_convergence.emplace_back(timestamp, min_LB);
                 }
             }
-
         }
 
+        // === 动态选择出栈策略 ===
+        if (stack.size() > static_cast<std::size_t>(max_capa)) {
+            use_best_first = false;
+        }
+        else if (stack.size() < static_cast<std::size_t>(min_capa)) {
+            use_best_first = true;
+        }
 
-        Node cur = stack.back();
-        stack.pop_back();
+        Node cur;
+        if (use_best_first) {
+            auto best_it = std::min_element(stack.begin(), stack.end(),
+                [](const Node& a, const Node& b) {
+                    return a.LB < b.LB;
+                });
+            cur = *best_it;
+            stack.erase(best_it);
+        }
+        else {
+            cur = stack.back();
+            stack.pop_back();
+        }
+
         ++stats.total_nodes;
 
-        // 初步不可行剪枝
+        // 不可行剪枝
         bool bad = false;
-        for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = cur.S.begin();
-            it != cur.S.end() && !bad; ++it) {
-            for (std::size_t ui = 0; ui < initial_infeasible.size(); ++ui) {
-                if (std::includes(
-                    it->second.begin(),
-                    it->second.end(),
-                    initial_infeasible[ui].begin(),
-                    initial_infeasible[ui].end()))
-                {
+        for (const auto& it : cur.S) {
+            for (const auto& infeasible_set : initial_infeasible) {
+                if (std::includes(it.second.begin(), it.second.end(),
+                    infeasible_set.begin(), infeasible_set.end())) {
                     bad = true;
                     break;
                 }
             }
+            if (bad) break;
         }
         if (bad) {
             ++stats.U_pruned_nodes;
@@ -407,7 +411,7 @@ std::pair<Node, Stats> branch_and_cut(
             continue;
         }
 
-        // LB 剪枝
+        // 下界剪枝
         if (cur.LB >= UB) {
             ++stats.LB_pruned_nodes;
             ++stats.pruned_nodes_per_depth[cur.depth];
@@ -431,49 +435,28 @@ std::pair<Node, Stats> branch_and_cut(
         auto [kids, pruned] = generate_children(cur, parts, machine_area, part_areas);
         stats.generated_nodes += kids.size();
         stats.area_pruned_nodes += pruned;
+
         for (auto& child : kids) {
-            // 1. 计算新增批次完成时间
             auto comp_times = compute_completion_times(child, ST, VT, UT, h, v);
             if (!comp_times.empty()) {
                 child.completion_time = comp_times.begin()->second;
             }
 
-            // 2. 基于当前批次，更新累计已分配零件的延迟
             child.total_tardiness = compute_assigned_tardiness(child, D);
-
-            // 3. 基于更新后的 completion_time 和 total_tardiness 估算下界
             child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
 
-            //// 添加日志记录（检验增量下界）
-            //if (log_stream.is_open()) {
-            //    log_stream << "\n======= Node " << child.name << " =======\n";
-            //    log_stream << "completion_time: " << child.completion_time << "\n";
-            //    log_stream << "total_tardiness: " << child.total_tardiness << "\n";
-            //    log_stream << "LB: " << child.LB << "\n";
-            //    log_stream << "Batches\n";
-            //    for (const auto& [bid, plist] : child.S) {
-            //        log_stream << "  batch " << bid << ": ";
-            //        for (int pid : plist) {
-            //            log_stream << pid << " ";
-            //        }
-            //        log_stream << "\n";
-            //    }
-            //    log_stream << "==============================\n";
-            //}
-
-            // 4. 剪枝判断
             if (child.LB < UB) {
-                stack.push_back(child);
+                stack.push_back(std::move(child));
             }
             else {
                 ++stats.LB_pruned_nodes;
                 ++stats.pruned_nodes_per_depth[child.depth];
             }
         }
-
     }
 
     return std::make_pair(best, stats);
 }
+
 
 
