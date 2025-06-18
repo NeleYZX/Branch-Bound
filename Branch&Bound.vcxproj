@@ -134,6 +134,7 @@
     <ClCompile Include="DataRecord.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="InstanceData.cpp" />
+    <ClCompile Include="VNS.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BranchBound.h" />
