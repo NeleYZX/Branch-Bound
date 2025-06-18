@@ -344,8 +344,8 @@ std::pair<Node, Stats> branch_and_cut(
     }
 
     // ========== 新增：自适应出栈策略控制 ==========
-    int max_capa = 8000;
-    int min_capa = 1000;
+    int max_capa = 5000;
+    int min_capa = 2000;
     bool use_best_first = true;
     static constexpr double epsilon = 1e-10;
 
