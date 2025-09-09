@@ -77,40 +77,43 @@ std::pair<BatchMap, double> generateInitialSolution(
 
 //===========================Node 定义===============================
 Node::Node()
-    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"),depth(0) {
+    : LB(0.0), mother_LB(std::numeric_limits<double>::infinity()), completion_time(0.0),
+    total_tardiness(0.0), name("N"), depth(0) {
 }
 
 Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     double LB_,
+    double mother_LB_,
     const std::string& name_,
     double completion_time_,
     double total_tardiness_,
     int depth_)
-    : S(S_), LB(LB_), name(name_),
-    completion_time(completion_time_), total_tardiness(total_tardiness_) ,depth(depth_){
+    : S(S_), LB(LB_), mother_LB(mother_LB_), name(name_),
+    completion_time(completion_time_), total_tardiness(total_tardiness_), depth(depth_) {
 }
 
 bool Node::operator==(const Node& other) const {
-    return S == other.S;
+    return S == other.S && mother_LB == other.mother_LB; // 对母节点下界的比较
 }
 
 std::size_t Node::Hash::operator()(const Node& node) const {
     std::size_t seed = 0;
-    for (typename std::unordered_map<int, std::vector<int> >::const_iterator it = node.S.begin();
-        it != node.S.end(); ++it) {
-        std::size_t h1 = std::hash<int>()(it->first);
-        for (std::size_t i = 0; i < it->second.size(); ++i) {
-            h1 ^= std::hash<int>()(it->second[i])
+    for (const auto& it : node.S) {
+        std::size_t h1 = std::hash<int>()(it.first);
+        for (size_t i = 0; i < it.second.size(); ++i) {
+            h1 ^= std::hash<int>()(it.second[i])
                 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2);
         }
         seed ^= h1 + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
+    seed ^= std::hash<double>()(node.mother_LB) + 0x9e3779b9 + (seed << 6) + (seed >> 2); // 添加母节点下界的哈希
     return seed;
 }
 
 std::ostream& operator<<(std::ostream& os, const Node& node) {
     os << "Node(" << node.name << "):\n";
     os << "  LB = " << node.LB << "\n";
+    os << "  mother_LB = " << node.mother_LB << "\n"; // 输出母节点下界
     os << "  S = {\n";
     for (const auto& pair : node.S) {
         os << "    Batch " << pair.first << ": [";
@@ -333,8 +336,8 @@ std::pair<Node, Stats> branch_and_cut(
         return cnt == parts.size();
         };
 
-    Node best(initial_S, 0.0, "Best", 0.0, 0.0,0);
-    Node root({}, 0.0, "Root", 0.0, 0.0,0);  // 修复初始化
+    Node best(initial_S, 0.0,0.0, "Best", 0.0, 0.0,0);
+    Node root({}, 0.0,0.0, "Root", 0.0, 0.0,0);  // 修复初始化
     root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
 
     std::deque<Node> stack;

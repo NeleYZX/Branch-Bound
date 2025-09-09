@@ -18,30 +18,30 @@ class Node {
 public:
     // 每个批次对应的零件列表
     std::unordered_map<int, std::vector<int>> S;
-    double LB;            // 当前节点的下界
-    double completion_time;     // 当前累计完成时间
-    double total_tardiness;     // 当前已产生总延迟
-    std::string name;     // 节点名称
-    int depth;
+    double LB;                   // 当前节点的下界
+    double mother_LB;           // 母节点下界
+    double completion_time;      // 当前累计完成时间
+    double total_tardiness;      // 当前已产生总延迟
+    std::string name;            // 节点名称
+    int depth;                   // 树深度
 
-    Node();
+    Node(); // 默认构造函数
     Node(const std::unordered_map<int, std::vector<int>>& S_,
         double LB_,
+        double mother_LB_ = std::numeric_limits<double>::infinity(),
         const std::string& name_ = "N",
         double completion_time_ = 0.0,
         double total_tardiness_ = 0.0,
-        int depth_ = 0);
+        int depth_ = 0); // 带参数构造函数
 
-    bool operator==(const Node& other) const;
+    bool operator==(const Node& other) const; // 重载相等运算符
 
-    friend std::ostream& operator<<(std::ostream& os, const Node& node);
+    friend std::ostream& operator<<(std::ostream& os, const Node& node); // 输出重载
 
     struct Hash {
-        std::size_t operator()(const Node& node) const;
+        std::size_t operator()(const Node& node) const; // 哈希函数
     };
 };
-
-//std::ostream& operator<<(std::ostream& os, const Node& node);
 
 //========================生成初始解==============================
 typedef std::map<int, std::set<int>> BatchMap;
