@@ -495,7 +495,7 @@ std::pair<Node, Stats> branch_and_cut(
             }
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
-            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
 
             if (child.LB < UB) {
                 stack.push_back(std::move(child));
