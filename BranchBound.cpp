@@ -292,6 +292,58 @@ double compute_unassigned_lower_bound(
     return node.total_tardiness + unassigned_tardiness;
 }
 
+//提出的更加收敛的LB的计算
+double compute_unassigned_lower_bound2(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+) {
+    // 找出已分配的零件
+    std::unordered_set<int> assigned;
+    for (const auto& [_, part_ids] : node.S) {
+        for (int pid : part_ids) {
+            assigned.insert(pid);
+        }
+    }
+
+    // 找出未分配零件的最小高度
+    double min_height = std::numeric_limits<double>::max();
+    std::vector<int> unassigned_parts;
+    for (int p : parts) {
+        if (assigned.find(p) == assigned.end()) {
+            unassigned_parts.push_back(p);
+            min_height = std::min(min_height, h[p]); // 更新最小高度
+        }
+    }
+
+    // 初始化延迟估计
+    double unassigned_tardiness = 0.0;
+    double completion_time_future = node.completion_time;
+    double vol_accumulated = 0.0; // 当前已处理部分体积
+
+    // 假设从当前位置开始串行处理未分配的零件
+    for (int p : unassigned_parts) {
+        // 累加当前零件的体积
+        vol_accumulated += v[p];
+
+        // 计算该零件的加工时间
+        double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
+        double completion_time = completion_time_future + processing_time; // 时刻更新为当前零件的完成时间
+        unassigned_tardiness += std::max(0.0, completion_time - D[p]);
+
+        // 更新时间点
+        completion_time_future = completion_time;  // 更新为下一个零件的开始时间
+    }
+
+    // 返回当前延迟 + 估计的未分配延迟下界
+    return node.total_tardiness + unassigned_tardiness;
+}
+
 
 
 
