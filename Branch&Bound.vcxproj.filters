@@ -24,12 +24,24 @@
     <ClCompile Include="BranchBound.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="DataRecord.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DynamicProgramming.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="InstanceData.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="BranchBound.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DataRecord.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DynamicProgramming.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

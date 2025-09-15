@@ -132,12 +132,14 @@
   <ItemGroup>
     <ClCompile Include="BranchBound.cpp" />
     <ClCompile Include="DataRecord.cpp" />
+    <ClCompile Include="DynamicProgramming.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="InstanceData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BranchBound.h" />
     <ClInclude Include="DataRecord.h" />
+    <ClInclude Include="DynamicProgramming.h" />
     <ClInclude Include="InstanceData.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
