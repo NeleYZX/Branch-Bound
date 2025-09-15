@@ -258,6 +258,7 @@ double compute_assigned_tardiness(
 }
 
 //=======================未分配零件总延迟下界估计====================
+//初始LB的计算，假设未分配零件在并行批次上进行
 double compute_unassigned_lower_bound(
     const Node& node,
     const std::vector<int>& parts,
@@ -292,7 +293,7 @@ double compute_unassigned_lower_bound(
     return node.total_tardiness + unassigned_tardiness;
 }
 
-//提出的更加收敛的LB的计算
+//提出的更加收敛的LB的计算：未分配零件串行计算
 double compute_unassigned_lower_bound2(
     const Node& node,
     const std::vector<int>& parts,
@@ -336,8 +337,7 @@ double compute_unassigned_lower_bound2(
         double completion_time = completion_time_future + processing_time; // 时刻更新为当前零件的完成时间
         unassigned_tardiness += std::max(0.0, completion_time - D[p]);
 
-        // 更新时间点
-        completion_time_future = completion_time;  // 更新为下一个零件的开始时间
+
     }
 
     // 返回当前延迟 + 估计的未分配延迟下界
