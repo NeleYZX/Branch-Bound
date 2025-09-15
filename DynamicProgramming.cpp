@@ -1,8 +1,10 @@
 #include "DynamicProgramming.h"
 #include <numeric>
 #include <iostream>
-#include <limits> // For std::numeric_limits
-// #include <vector> // vector 已经通过 TotalTardiness.h 包含了
+#include <limits> 
+#include <sstream>
+
+
 
 // **确保这里的签名是 double initial_t**
 TotalTardinessSolver::TotalTardinessSolver(const std::vector<Job>& jobs, double initial_t)
@@ -11,6 +13,34 @@ TotalTardinessSolver::TotalTardinessSolver(const std::vector<Job>& jobs, double 
         id_to_job[job.id] = job;
     }
 }
+
+// Debugging methods implementation
+void TotalTardinessSolver::set_debug_mode(bool enable) {
+    debug_enabled = enable;
+}
+
+void TotalTardinessSolver::set_debug_depth(int depth) {
+    max_debug_depth = depth;
+}
+
+std::string TotalTardinessSolver::get_indent() const {
+    if (current_debug_depth > max_debug_depth) return "";
+    return std::string(current_debug_depth * 2, ' ');
+}
+
+std::string TotalTardinessSolver::job_ids_to_string(const std::vector<int>& ids) const {
+    std::ostringstream oss;
+    oss << "{";
+    for (size_t i = 0; i < ids.size(); ++i) {
+        oss << ids[i];
+        if (i < ids.size() - 1) {
+            oss << ", ";
+        }
+    }
+    oss << "}";
+    return oss.str();
+}
+
 
 // **确保这里的签名是 const**
 int TotalTardinessSolver::find_max_processing_time_job_id(const std::vector<int>& job_ids) const {
@@ -35,21 +65,44 @@ double TotalTardinessSolver::calculate_V(std::vector<int> current_job_ids, doubl
     std::sort(current_job_ids.begin(), current_job_ids.end());
 
     DPCacheKey key = { current_job_ids, t };
-    if (memo.count(key)) {
-        return memo[key];
+
+    // Increment depth for entry
+    current_debug_depth++;
+
+    if (debug_enabled && current_debug_depth <= max_debug_depth) {
+        std::cout << get_indent() << "Call calculate_V(Jobs: " << job_ids_to_string(current_job_ids) << ", t: " << t << ")\n";
     }
 
+    if (memo.count(key)) {
+        double cached_value = memo[key];
+        if (debug_enabled && current_debug_depth <= max_debug_depth) {
+            std::cout << get_indent() << "Cache Hit: " << cached_value << "\n";
+        }
+        current_debug_depth--; // Decrement depth for exit
+        return cached_value;
+    }
+
+    // Base cases
     if (current_job_ids.empty()) {
+        if (debug_enabled && current_debug_depth <= max_debug_depth) {
+            std::cout << get_indent() << "Base Case (empty set): 0.0\n";
+        }
+        current_debug_depth--; // Decrement depth for exit
         return memo[key] = 0.0;
     }
     if (current_job_ids.size() == 1) {
         int job_id = current_job_ids[0];
         const Job& job = id_to_job.at(job_id);
-        return memo[key] = std::max(0.0, t + job.p - job.d);
+        double tardiness = std::max(0.0, t + job.p - job.d);
+        if (debug_enabled && current_debug_depth <= max_debug_depth) {
+            std::cout << get_indent() << "Base Case (single job " << job_id << "): " << tardiness << "\n";
+        }
+        current_debug_depth--; // Decrement depth for exit
+        return memo[key] = tardiness;
     }
 
     double min_total_tardiness = std::numeric_limits<double>::max();
-    OptimalDecision best_decision; // 已在头文件中初始化 k_prime_id
+    OptimalDecision best_decision;
 
     int k_prime_id = find_max_processing_time_job_id(current_job_ids);
     const Job& k_prime_job = id_to_job.at(k_prime_id);
@@ -59,6 +112,10 @@ double TotalTardinessSolver::calculate_V(std::vector<int> current_job_ids, doubl
         if (job_id != k_prime_id) {
             jobs_without_k_prime.push_back(job_id);
         }
+    }
+
+    if (debug_enabled && current_debug_depth <= max_debug_depth) {
+        std::cout << get_indent() << "  Chosen k' (max_p_job): " << k_prime_id << " (p=" << k_prime_job.p << ", d=" << k_prime_job.d << ")\n";
     }
 
     size_t num_other_jobs = jobs_without_k_prime.size();
@@ -79,6 +136,11 @@ double TotalTardinessSolver::calculate_V(std::vector<int> current_job_ids, doubl
             }
         }
 
+        if (debug_enabled && current_debug_depth <= max_debug_depth) {
+            std::cout << get_indent() << "  Partition: (Before " << k_prime_id << ": " << job_ids_to_string(jobs_before_k_prime)
+                << ", After " << k_prime_id << ": " << job_ids_to_string(jobs_after_k_prime) << ")\n";
+        }
+
         double completion_time_k_prime_at_delta = t + current_p_sum_before_k_prime + k_prime_job.p;
 
         double tardiness_k_prime = std::max(0.0, completion_time_k_prime_at_delta - k_prime_job.d);
@@ -88,14 +150,30 @@ double TotalTardinessSolver::calculate_V(std::vector<int> current_job_ids, doubl
 
         double current_total_tardiness = tardiness_before + tardiness_k_prime + tardiness_after;
 
+        if (debug_enabled && current_debug_depth <= max_debug_depth) {
+            std::cout << get_indent() << "    Sub-results: Before=" << tardiness_before
+                << ", k'(" << k_prime_id << ")=" << tardiness_k_prime
+                << ", After=" << tardiness_after << " -> Total=" << current_total_tardiness << "\n";
+        }
+
         if (current_total_tardiness < min_total_tardiness) {
             min_total_tardiness = current_total_tardiness;
             best_decision.k_prime_id = k_prime_id;
             best_decision.jobs_before_k_prime = jobs_before_k_prime;
             best_decision.jobs_after_k_prime = jobs_after_k_prime;
+            if (debug_enabled && current_debug_depth <= max_debug_depth) {
+                std::cout << get_indent() << "    New best tardiness for this state: " << min_total_tardiness << "\n";
+            }
         }
     }
     path_memo[key] = best_decision;
+
+    if (debug_enabled && current_debug_depth <= max_debug_depth) {
+        std::cout << get_indent() << "Return calculate_V(Jobs: " << job_ids_to_string(current_job_ids)
+            << ", t: " << t << "): " << min_total_tardiness << "\n";
+    }
+
+    current_debug_depth--; // Decrement depth for exit
     return memo[key] = min_total_tardiness;
 }
 
