@@ -1,5 +1,6 @@
 ﻿#include "BranchBound.h"
 #include "DataRecord.h"
+#include "DynamicProgramming.h"
 #include <algorithm>
 #include <chrono>
 #include <limits>
@@ -322,13 +323,37 @@ double compute_unassigned_lower_bound2(
         }
     }
 
+    // 如果没有未分配的零件，则没有额外的延迟
+    if (unassigned_parts.empty()) {
+        return node.total_tardiness;
+    }
+
+    //===========================引入动态规划算法获得未分配零件的最优序列============================
+    std::vector<Job> dp_jobs;
+    std::vector<Job> dp_jobs_for_solver;
+    for (int pid : unassigned_parts) {
+        dp_jobs_for_solver.push_back(Job{  // 显式调用构造函数，或者可以省略 Job
+            pid,                 // id
+            v[pid]* VT[0],      // p (近似：只考虑体积相关的处理时间)
+            D[pid]               // d
+            });
+    }
+    double dp_initial_time = node.completion_time + ST[0] + UT[0] * min_height;
+
+    TotalTardinessSolver solver(dp_jobs_for_solver, dp_initial_time);
+    double dp_min_total_tardiness = solver.solve();
+    std::vector<int> optimal_unassigned_sequence = solver.get_optimal_sequence();
+
+
+
+
     // 初始化延迟估计
     double unassigned_tardiness = 0.0;
     double completion_time_future = node.completion_time;
     double vol_accumulated = 0.0; // 当前已处理部分体积
 
     // 假设从当前位置开始串行处理未分配的零件
-    for (int p : unassigned_parts) {
+    for (int p : optimal_unassigned_sequence) {
         // 累加当前零件的体积
         vol_accumulated += v[p];
 
@@ -344,8 +369,6 @@ double compute_unassigned_lower_bound2(
     return node.total_tardiness + unassigned_tardiness;
 }
 
-
-//=======================Dynamic programming动态规划算法获得未分配零件的最优序列================================
 
 
 
