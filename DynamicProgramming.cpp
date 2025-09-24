@@ -40,7 +40,7 @@ DPResult::DPResult(double tardiness, int delta) : min_tardiness(tardiness), best
 
 // 调试函数实现
 void print_debug_info(const std::string& msg) {
-    // std::cout << "[DEBUG] " << msg << std::endl; // 可以取消注释以查看调试信息
+     std::cout << "[DEBUG] " << msg << std::endl; // 可以取消注释以查看调试信息
 }
 
 // 辅助函数：计算子集中所有作业的总处理时间
@@ -53,6 +53,7 @@ double calculate_total_processing_time(const std::vector<int>& subset_original_i
 }
 
 // 辅助函数：在给定子集中找到处理时间最长的作业的原始索引
+// 返回作业在 all_jobs 列表中的原始索引
 int get_longest_processing_time_job_original_index(const std::vector<int>& subset_original_indices) {
     if (subset_original_indices.empty()) {
         return -1;
@@ -104,36 +105,41 @@ DPResult V(const std::vector<int>& subset_original_indices, double t) {
         return DPResult(-1.0, -1); // 异常情况
     }
 
-    // 构建除了 k_prime 之外的作业列表，并按照 due_date 排序
-    std::vector<int> jobs_without_k_prime;
+    // 拆分作业集合 J 为 smaller_jobs 和 larger_jobs
+    // smaller_jobs: 原始索引小于 k_prime_original_idx 且在当前子集中的作业
+    // larger_jobs: 原始索引大于 k_prime_original_idx 且在当前子集中的作业
+    // (注意：这里是根据原始索引进行划分，而非处理时间或duedate)
+    std::vector<int> smaller_jobs_in_subset;
+    std::vector<int> larger_jobs_in_subset;
+
     for (int idx : subset_original_indices) {
-        if (idx != k_prime_original_idx) {
-            jobs_without_k_prime.push_back(idx);
+        if (idx < k_prime_original_idx) {
+            smaller_jobs_in_subset.push_back(idx);
+        }
+        else if (idx > k_prime_original_idx) {
+            larger_jobs_in_subset.push_back(idx);
         }
     }
-    std::sort(jobs_without_k_prime.begin(), jobs_without_k_prime.end(),
-        [](int a, int b) {
-            return all_jobs[a].d < all_jobs[b].d;
-        });
+    // 确保这些子集内部也是排序的，以保证 SubsetKey 的一致性
+    std::sort(smaller_jobs_in_subset.begin(), smaller_jobs_in_subset.end());
+    std::sort(larger_jobs_in_subset.begin(), larger_jobs_in_subset.end());
 
-    // delta 现在表示在 jobs_without_k_prime 中，有多少个作业会排在 k_prime 之前。
-    for (int delta = 0; delta <= jobs_without_k_prime.size(); ++delta) {
-        std::vector<int> first_part_jobs_recurs; // 实际在 k_prime 之前调度的作业
-        std::vector<int> third_part_jobs_recurs; // 实际在 k_prime 之后调度的作业
-
-        // 将 jobs_without_k_prime 拆分
-        for (int i = 0; i < delta; ++i) {
-            first_part_jobs_recurs.push_back(jobs_without_k_prime[i]);
+    // 遍历所有可能的 δ 值
+    // δ 代表 larger_jobs_in_subset 中有多少个作业排在 k_prime_original_idx 之前
+    for (int delta = 0; delta <= larger_jobs_in_subset.size(); ++delta) {
+        std::vector<int> first_part_jobs_recurs = smaller_jobs_in_subset; // 这部分总是排在 k_prime 之前
+        for (int i = 0; i < delta; ++i) { // 从 larger_jobs 中取 delta 个也排在 k_prime 之前
+            first_part_jobs_recurs.push_back(larger_jobs_in_subset[i]);
         }
-        for (size_t i = delta; i < jobs_without_k_prime.size(); ++i) {
-            third_part_jobs_recurs.push_back(jobs_without_k_prime[i]);
+        std::sort(first_part_jobs_recurs.begin(), first_part_jobs_recurs.end()); // 确保排序
+
+        std::vector<int> third_part_jobs_recurs; // 剩余的 larger_jobs 排在 k_prime 之后
+        for (size_t i = delta; i < larger_jobs_in_subset.size(); ++i) {
+            third_part_jobs_recurs.push_back(larger_jobs_in_subset[i]);
         }
+        std::sort(third_part_jobs_recurs.begin(), third_part_jobs_recurs.end()); // 确保排序
 
-        // 确保递归调用的子集是排序的，以保证 SubsetKey 的一致性
-        std::sort(first_part_jobs_recurs.begin(), first_part_jobs_recurs.end());
-        std::sort(third_part_jobs_recurs.begin(), third_part_jobs_recurs.end());
-
-        // 计算 k_prime 的完成时间
+        // 计算 k_prime_original_idx 的完成时间
         double completion_k_prime_delta = t + calculate_total_processing_time(first_part_jobs_recurs) + all_jobs[k_prime_original_idx].p;
 
         double current_tardiness_k_prime = std::max(0.0, completion_k_prime_delta - all_jobs[k_prime_original_idx].d);
@@ -193,30 +199,32 @@ void reconstruct_optimal_sequence(const std::vector<int>& current_subset_origina
 
     int k_prime_original_idx = get_longest_processing_time_job_original_index(current_subset_original_indices);
 
-    // 重新构建 jobs_without_k_prime 并排序，以与 V 函数中的逻辑一致
-    std::vector<int> jobs_without_k_prime;
+    // 重新构建 smaller_jobs_in_subset 和 larger_jobs_in_subset，与 V 函数中的逻辑一致
+    std::vector<int> smaller_jobs_in_subset;
+    std::vector<int> larger_jobs_in_subset;
+
     for (int idx : current_subset_original_indices) {
-        if (idx != k_prime_original_idx) {
-            jobs_without_k_prime.push_back(idx);
+        if (idx < k_prime_original_idx) {
+            smaller_jobs_in_subset.push_back(idx);
+        }
+        else if (idx > k_prime_original_idx) {
+            larger_jobs_in_subset.push_back(idx);
         }
     }
-    std::sort(jobs_without_k_prime.begin(), jobs_without_k_prime.end(),
-        [](int a, int b) {
-            return all_jobs[a].d < all_jobs[b].d;
-        });
+    std::sort(smaller_jobs_in_subset.begin(), smaller_jobs_in_subset.end());
+    std::sort(larger_jobs_in_subset.begin(), larger_jobs_in_subset.end());
 
-    std::vector<int> first_part_jobs_recurs;
-    std::vector<int> third_part_jobs_recurs;
 
+    std::vector<int> first_part_jobs_recurs = smaller_jobs_in_subset;
     for (int i = 0; i < best_delta; ++i) {
-        first_part_jobs_recurs.push_back(jobs_without_k_prime[i]);
+        first_part_jobs_recurs.push_back(larger_jobs_in_subset[i]);
     }
-    for (size_t i = best_delta; i < jobs_without_k_prime.size(); ++i) {
-        third_part_jobs_recurs.push_back(jobs_without_k_prime[i]);
-    }
-
-    // 确保递归调用的子集是排序的
     std::sort(first_part_jobs_recurs.begin(), first_part_jobs_recurs.end());
+
+    std::vector<int> third_part_jobs_recurs;
+    for (size_t i = best_delta; i < larger_jobs_in_subset.size(); ++i) {
+        third_part_jobs_recurs.push_back(larger_jobs_in_subset[i]);
+    }
     std::sort(third_part_jobs_recurs.begin(), third_part_jobs_recurs.end());
 
     // 递归重建第一部分
