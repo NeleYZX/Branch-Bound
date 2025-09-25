@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <vector>
 #include <string>
+#include "DynamicProgramming.h"
 
 //=========================生成初始解（无任何调试输出）=========================
 std::pair<BatchMap, double> generateInitialSolution(
@@ -324,11 +325,25 @@ double compute_unassigned_lower_bound2(
 
     // 初始化延迟估计
     double unassigned_tardiness = 0.0;
-    double completion_time_future = node.completion_time;
+    double completion_time_future = node.completion_time + ST[0] + UT[0] * min_height;
     double vol_accumulated = 0.0; // 当前已处理部分体积
 
+    //===========================引入动态规划算法获得未分配零件的最优序列============================
+    std::vector<Job> dp_jobs;
+    std::vector<Job> dp_jobs_for_solver;
+    for (int pid : unassigned_parts) {
+        dp_jobs_for_solver.push_back(Job{  // 显式调用构造函数，或者可以省略 Job
+            pid,                 // id
+            v[pid] * VT[0],      // p (近似：只考虑体积相关的处理时间)
+            D[pid]               // d
+            });
+    }
+    double dp_initial_time = node.completion_time;
+    std::vector<int> optimal_sequence_result;
+    double min_tardiness = minimize_total_tardiness(dp_jobs_for_solver, dp_initial_time, optimal_sequence_result);
+
     // 假设从当前位置开始串行处理未分配的零件
-    for (int p : unassigned_parts) {
+    for (int p : optimal_sequence_result) {
         // 累加当前零件的体积
         vol_accumulated += v[p];
 
