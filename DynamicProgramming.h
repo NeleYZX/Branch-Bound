@@ -19,6 +19,8 @@ struct Job {
     double d; // due_date
     int original_input_index; // 新增字段：在 jobs_input 中的原始索引
 
+    friend std::ostream& operator<<(std::ostream& os, const Job& job);
+
     // 用于调试输出
     std::string to_string() const {
         return "Job{" + std::to_string(id) + ", p=" + std::to_string(p) + ", d=" + std::to_string(d) + ", original_idx=" + std::to_string(original_input_index) + "}";
@@ -81,8 +83,10 @@ void reconstruct_optimal_sequence(const std::vector<int>& current_subset_indices
 double calculate_total_lateness(const std::vector<Job>& schedule); // 返回值修改
 
 // 使用枚举法找到最小化总延迟时间的调度方案
-std::vector<Job> find_min_lateness_schedule(const std::vector<Job>& jobs);
+std::vector<std::vector<Job>> find_all_min_lateness_schedules(const std::vector<Job>& jobs);
 
+// 辅助函数：打印调度方案 (声明)
+void print_schedule(const std::vector<Job>& schedule);
 
 //================================随机算例生成================================================
 

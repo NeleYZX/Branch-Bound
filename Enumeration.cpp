@@ -4,6 +4,13 @@
 
 //==================================================枚举函数实现===============================================
 
+// Job 结构体中的 ostream << 运算符的定义
+std::ostream& operator<<(std::ostream& os, const Job& job) {
+    os << "(ID:" << job.id << ", p:" << job.p << ", d:" << job.d << ")";
+    return os;
+}
+
+// 计算给定调度方案的总延迟
 double calculate_total_lateness(const std::vector<Job>& schedule) {
     double current_time = 0.0;
     double total_lateness = 0.0;
@@ -14,30 +21,51 @@ double calculate_total_lateness(const std::vector<Job>& schedule) {
     return total_lateness;
 }
 
-std::vector<Job> find_min_lateness_schedule(const std::vector<Job>& jobs) {
+// 查找所有最小化总延迟的调度方案
+std::vector<std::vector<Job>> find_all_min_lateness_schedules(const std::vector<Job>& jobs) {
     std::vector<Job> current_permutation = jobs;
-    std::vector<Job> best_schedule = jobs;
+    std::vector<std::vector<Job>> best_schedules; // 存储所有最优调度方案
     double min_lateness = std::numeric_limits<double>::max();
 
     // 初始排序，确保 std::next_permutation 从第一个排列开始
-    // 默认按ID排序，或者根据实际需要
     std::sort(current_permutation.begin(), current_permutation.end(), [](const Job& a, const Job& b) {
-        return a.id < b.id;
+        return a.id < b.id; // 假设ID唯一且作为排序基准
         });
 
     do {
         double current_lateness = calculate_total_lateness(current_permutation);
+
         if (current_lateness < min_lateness) {
+            // 找到了更小的总延迟
             min_lateness = current_lateness;
-            best_schedule = current_permutation;
+            best_schedules.clear();
+            best_schedules.push_back(current_permutation);
+        }
+        else if (current_lateness == min_lateness) {
+            // 找到了相同最小总延迟的方案
+            best_schedules.push_back(current_permutation);
         }
     } while (std::next_permutation(current_permutation.begin(), current_permutation.end(), [](const Job& a, const Job& b) {
-        // next_permutation 需要一个 strict weak ordering，这里仍然按ID比较
-        return a.id < b.id;
+        return a.id < b.id; // 保持与初始排序一致的比较器
         }));
 
-    return best_schedule;
+    return best_schedules;
 }
+
+
+// 辅助函数：打印调度方案
+void print_schedule(const std::vector<Job>& schedule) {
+    std::cout << "["; // 添加方括号，使输出更清晰
+    for (size_t i = 0; i < schedule.size(); ++i) {
+        std::cout << schedule[i].id; // 只打印 Job 的 id
+        if (i < schedule.size() - 1) {
+            std::cout << ", "; // 使用逗号和空格分隔
+        }
+    }
+    std::cout << "]" << std::endl; // 结束方括号并换行
+}
+
+
 
 
 //==================================================随机算例生成实现================================================
