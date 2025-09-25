@@ -322,12 +322,6 @@ double compute_unassigned_lower_bound2(
             min_height = std::min(min_height, h[p]); // 更新最小高度
         }
     }
-
-    // 初始化延迟估计
-    double unassigned_tardiness = 0.0;
-    double completion_time_future = node.completion_time + ST[0] + UT[0] * min_height;
-    double vol_accumulated = 0.0; // 当前已处理部分体积
-
     //===========================引入动态规划算法获得未分配零件的最优序列============================
     std::vector<Job> dp_jobs;
     std::vector<Job> dp_jobs_for_solver;
@@ -341,6 +335,13 @@ double compute_unassigned_lower_bound2(
     double dp_initial_time = node.completion_time;
     std::vector<int> optimal_sequence_result;
     double min_tardiness = minimize_total_tardiness(dp_jobs_for_solver, dp_initial_time, optimal_sequence_result);
+
+
+    // 初始化延迟估计
+    double unassigned_tardiness = 0.0;
+    double completion_time_future = node.completion_time;
+    double vol_accumulated = 0.0; // 当前已处理部分体积
+
 
     // 假设从当前位置开始串行处理未分配的零件
     for (int p : optimal_sequence_result) {
