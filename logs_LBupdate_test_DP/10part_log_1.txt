@@ -33,11 +33,11 @@ Node(Root_351_123_1_0):
     Batch 3: [0]
   }
 ============= The search Info =============
-The handled total nodes(pop):14533
-The number of generated nodes:350059
-The number of leaf nodes:6
-The times of updated best solution:6
+The handled total nodes(pop):16271
+The number of generated nodes:354282
+The number of leaf nodes:11
+The times of updated best solution:11
 pruned times-Area:0
-pruned times-LB:338449
+pruned times-LB:341032
 pruned times-Infeasible:0
-time:10.912000s
+time:10.349000s

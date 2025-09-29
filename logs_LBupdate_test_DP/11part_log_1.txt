@@ -18,27 +18,27 @@ Parts Summary:
   Part 9: 5.000000 x 4.000000 x 7.000000, Vol = 84.000000, Support = 0.000000
   Part 10: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
 
-The total tardiness:372.120278
+The total tardiness:319.120278
 
 ============== Start Branch and Cut Search ==============
 
 上下界记录已导出至: logs_LBupdate_test_DP/11part_log_1_bounds.csv
 
 =============== Best Solution ===============
-Node(Root_1119_189_1_0):
-  LB = 137.856
+Node(Root_653_45_1_0):
+  LB = 110.607
   S = {
-    Batch 0: [5, 6, 10]
-    Batch 1: [1, 2, 3, 4, 7, 9]
+    Batch 0: [1, 2, 3, 7, 9]
+    Batch 1: [4, 5, 6, 10]
     Batch 2: [8]
     Batch 3: [0]
   }
 ============= The search Info =============
-The handled total nodes(pop):64737
-The number of generated nodes:2155380
-The number of leaf nodes:25
-The times of updated best solution:25
+The handled total nodes(pop):68463
+The number of generated nodes:2379864
+The number of leaf nodes:10
+The times of updated best solution:10
 pruned times-Area:0
-pruned times-LB:2093650
+pruned times-LB:2314677
 pruned times-Infeasible:0
-time:109.004000s
+time:95.208000s
