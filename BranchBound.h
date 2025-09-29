@@ -113,6 +113,7 @@ struct Stats {
     std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
     std::vector<std::pair<double, double>> LB_convergence;   // <时间戳, 当前最小LB>
+    std::vector<std::pair<std::string, double>> first_level_node_lbs; // 新增：存储第一层子节点的名称和LB
 };
 
 std::pair<Node, Stats> branch_and_cut(

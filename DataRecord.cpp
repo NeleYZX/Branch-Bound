@@ -102,3 +102,31 @@ int export_pruned_depth_info(
 
     return 0;
 }
+
+//================第一层节点数据记录=======================
+void export_first_level_lbs(
+    const std::string& log_filename,
+    const std::vector<std::pair<std::string, double>>& first_level_node_lbs
+) {
+    std::string csv_filename = log_filename;
+    size_t pos = csv_filename.find_last_of(".");
+    if (pos != std::string::npos) {
+        csv_filename = csv_filename.substr(0, pos);
+    }
+    csv_filename += "_first_level_lbs.csv"; // 命名方式与其他文件类似
+
+    std::ofstream csv_file(csv_filename);
+    if (!csv_file.is_open()) {
+        std::cerr << "无法打开文件用于写入第一层子节点 LB 信息: " << csv_filename << std::endl;
+        return;
+    }
+
+    csv_file << "Node Name,Lower Bound\n"; // CSV 文件头
+    for (const auto& entry : first_level_node_lbs) {
+        // 使用 std::fixed 和 std::setprecision 保持数值精度
+        csv_file << entry.first << "," << std::fixed << std::setprecision(6) << entry.second << "\n";
+    }
+
+    csv_file.close();
+    log_and_cout("第一层子节点 LB 信息已导出至: " + csv_filename + "\n");
+}

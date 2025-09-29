@@ -503,6 +503,8 @@ std::pair<Node, Stats> branch_and_cut(
         }
 
         // 展开子节点
+        // 只有当当前节点是根节点 (depth == 0) 时，才记录其子节点的名称和 LB
+        bool is_root_node = (cur.depth == 0);
         auto [kids, pruned] = generate_children(cur, parts, machine_area, part_areas);
         stats.generated_nodes += kids.size();
         stats.area_pruned_nodes += pruned;
@@ -515,6 +517,11 @@ std::pair<Node, Stats> branch_and_cut(
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
             child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+
+            // 记录第一层子节点的名称和LB
+            if (is_root_node) {
+                stats.first_level_node_lbs.emplace_back(child.name, child.LB);
+            }
 
             if (child.LB < UB) {
                 stack.push_back(std::move(child));

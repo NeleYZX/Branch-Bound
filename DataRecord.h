@@ -43,4 +43,6 @@ int export_pruned_depth_info(
     const std::unordered_map<int, int>& pruned_nodes_per_depth
 );
 
+void export_first_level_lbs(const std::string& log_filename, const std::vector<std::pair<std::string, double>>& first_level_node_lbs);
+
 #endif DATA_RECORD_H
