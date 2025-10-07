@@ -35,4 +35,4 @@ The times of updated best solution:1
 pruned times-Area:12
 pruned times-LB:282
 pruned times-Infeasible:0
-time:0.013000s
+time:0.007000s
