@@ -361,9 +361,24 @@ double compute_unassigned_lower_bound2(
 }
 
 
-//=======================Dynamic programming动态规划算法获得未分配零件的最优序列================================
-
-
+int count_unassigned_parts(
+    const Node& node,
+    const std::vector<int>& parts // 接收已分配零件的批次信息
+) {
+    std::unordered_set<int> assigned;
+    for (const auto& [_, part_ids] : node.S) {
+        for (int pid : part_ids) {
+            assigned.insert(pid);
+        }
+    } // 获取已分配零件集合
+    int unassigned_count = 0;
+    for (int p : parts) { // 遍历所有可能的零件
+        if (assigned.find(p) == assigned.end()) { // 如果零件p不在已分配集合中
+            unassigned_count++; // 计数增加
+        }
+    }
+    return unassigned_count;
+}
 
 
 //========================Branch and Bound（无任何调试输出）========================
@@ -515,8 +530,17 @@ std::pair<Node, Stats> branch_and_cut(
                 child.completion_time = comp_times.begin()->second;
             }
 
+
             child.total_tardiness = compute_assigned_tardiness(child, D);
-            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+            int threshold_unassigned_parts = 10;
+            int unassigned_count = count_unassigned_parts(child, parts);
+            if(unassigned_count <= threshold_unassigned_parts){
+                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            }
+            else {
+                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+            }
+            
 
             // 记录第一层子节点的名称和LB
             if (is_root_node) {
