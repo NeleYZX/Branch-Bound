@@ -303,7 +303,8 @@ double compute_unassigned_lower_bound2(
     const std::vector<double>& VT,
     const std::vector<double>& UT,
     const std::vector<double>& h,
-    const std::vector<double>& v
+    const std::vector<double>& v,
+    const std::vector<double>& individual_part_processing_times
 ) {
     // 找出已分配的零件
     std::unordered_set<int> assigned;
@@ -350,7 +351,9 @@ double compute_unassigned_lower_bound2(
 
         // 计算该零件的加工时间
         double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
-        double completion_time = completion_time_future + processing_time; // 时刻更新为当前零件的完成时间
+        double final_processing_time = std::max(processing_time, individual_part_processing_times[p]);
+
+        double completion_time = completion_time_future + final_processing_time;
         unassigned_tardiness += std::max(0.0, completion_time - D[p]);
 
 
@@ -415,6 +418,14 @@ std::pair<Node, Stats> branch_and_cut(
         }
         return cnt == parts.size();
         };
+
+    std::vector<double> individual_processing_times(parts.size());
+
+    // 遍历 parts 列表的索引
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        int current_part_id = parts[i];
+        individual_processing_times[i] = ST[0] + VT[0] * v[current_part_id] + UT[0] * h[current_part_id];
+    }
 
     Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
@@ -534,12 +545,13 @@ std::pair<Node, Stats> branch_and_cut(
             child.total_tardiness = compute_assigned_tardiness(child, D);
             int threshold_unassigned_parts = 10;
             int unassigned_count = count_unassigned_parts(child, parts);
-            if(unassigned_count <= threshold_unassigned_parts){
-                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            }
-            else {
-                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
-            }
+            //if(unassigned_count <= threshold_unassigned_parts){
+            //    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            //}
+            //else {
+            //    child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            //}
+            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
             
 
             // 记录第一层子节点的名称和LB
