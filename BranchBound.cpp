@@ -545,13 +545,14 @@ std::pair<Node, Stats> branch_and_cut(
             child.total_tardiness = compute_assigned_tardiness(child, D);
             int threshold_unassigned_parts = 10;
             int unassigned_count = count_unassigned_parts(child, parts);
-            //if(unassigned_count <= threshold_unassigned_parts){
-            //    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            //}
-            //else {
-            //    child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
-            //}
-            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            if(unassigned_count <= threshold_unassigned_parts){
+                double LB_old = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+                child.LB = std::max(cur.LB, LB_old);
+            }
+            else {
+                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            }
+            //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
             
 
             // 记录第一层子节点的名称和LB
