@@ -545,19 +545,27 @@ std::pair<Node, Stats> branch_and_cut(
             child.total_tardiness = compute_assigned_tardiness(child, D);
             int threshold_unassigned_parts = 10;
             int unassigned_count = count_unassigned_parts(child, parts);
-            if(unassigned_count <= threshold_unassigned_parts){
-                double LB_old = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-                child.LB = std::max(cur.LB, LB_old);
-            }
-            else {
-                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
-            }
-            //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+
+            // 记录计算下界前的时间
+            auto lb_start_time = std::chrono::steady_clock::now();
+
+            //if(unassigned_count <= threshold_unassigned_parts){
+            //    double LB_old = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            //    child.LB = std::max(cur.LB, LB_old);
+            //}
+            //else {
+            //    child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            //}
+            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
             
+                        // 计算下界所用的CPU时间
+            auto lb_end_time = std::chrono::steady_clock::now();
+            double lb_elapsed_time = std::chrono::duration<double>(lb_end_time - lb_start_time).count();
 
             // 记录第一层子节点的名称和LB
             if (is_root_node) {
                 stats.first_level_node_lbs.emplace_back(child.name, child.LB);
+                stats.first_level_node_unassigned_parts_and_lb_time.emplace_back(child.name, unassigned_count, lb_elapsed_time);
             }
 
             if (child.LB < UB) {

@@ -130,3 +130,35 @@ void export_first_level_lbs(
     csv_file.close();
     log_and_cout("第一层子节点 LB 信息已导出至: " + csv_filename + "\n");
 }
+
+
+//================第一层节点未分配零件和LB计算时间数据记录=======================
+void export_first_level_unassigned_parts_and_lb_time(
+    const std::string& log_filename,
+    const std::vector<std::tuple<std::string, int, double>>& first_level_node_unassigned_parts_and_lb_time
+) {
+    std::string csv_filename = log_filename;
+    size_t pos = csv_filename.find_last_of(".");
+    if (pos != std::string::npos) {
+        csv_filename = csv_filename.substr(0, pos);
+    }
+    csv_filename += "_first_level_unassigned_lb_time.csv"; // 明确的文件名
+
+    std::ofstream csv_file(csv_filename);
+    if (!csv_file.is_open()) {
+        std::cerr << "无法打开文件用于写入第一层子节点未分配零件和 LB 计算时间信息: " << csv_filename << std::endl;
+        return;
+    }
+
+    // CSV 文件头
+    csv_file << "Node Name,Unassigned Parts Count,LB Calculation Time (s)\n";
+    for (const auto& entry : first_level_node_unassigned_parts_and_lb_time) {
+        // 使用 std::get<N>(entry) 访问 tuple 元素
+        csv_file << std::get<0>(entry) << ","
+            << std::get<1>(entry) << ","
+            << std::fixed << std::setprecision(6) << std::get<2>(entry) << "\n";
+    }
+
+    csv_file.close();
+    log_and_cout("第一层子节点未分配零件和 LB 计算时间信息已导出至: " + csv_filename + "\n");
+}

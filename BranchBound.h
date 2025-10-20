@@ -114,6 +114,7 @@ struct Stats {
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
     std::vector<std::pair<double, double>> LB_convergence;   // <时间戳, 当前最小LB>
     std::vector<std::pair<std::string, double>> first_level_node_lbs; // 新增：存储第一层子节点的名称和LB
+    std::vector<std::tuple<std::string, int, double>> first_level_node_unassigned_parts_and_lb_time;//第一层子节点未分配零件数量和计算下界的CPU时间。
 };
 
 std::pair<Node, Stats> branch_and_cut(

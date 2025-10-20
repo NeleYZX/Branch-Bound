@@ -45,4 +45,9 @@ int export_pruned_depth_info(
 
 void export_first_level_lbs(const std::string& log_filename, const std::vector<std::pair<std::string, double>>& first_level_node_lbs);
 
+void export_first_level_unassigned_parts_and_lb_time(
+    const std::string& log_filename,
+    const std::vector<std::tuple<std::string, int, double>>& first_level_node_unassigned_parts_and_lb_time
+);
+
 #endif DATA_RECORD_H
