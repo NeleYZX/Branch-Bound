@@ -549,7 +549,7 @@ std::pair<Node, Stats> branch_and_cut(
             // 记录计算下界前的时间
             auto lb_start_time = std::chrono::steady_clock::now();
 
-            if(4 <= unassigned_count <= 7){
+            if(unassigned_count <= threshold_unassigned_parts){
                 double LB_old = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
                 child.LB = std::max(cur.LB, LB_old);
             }
