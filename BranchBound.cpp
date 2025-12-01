@@ -516,12 +516,19 @@ std::pair<Node, Stats> branch_and_cut(
             }
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
-            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+            // 如果是第一层子节点 (depth == 1)，使用较强的 LB2,否则使用较快的 LB1
+
+            if (child.depth == 1) {
+                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+            }
+            else {
+                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            }
 
             // 记录第一层子节点的名称和LB
-            if (is_root_node) {
-                stats.first_level_node_lbs.emplace_back(child.name, child.LB);
-            }
+            //if (is_root_node) {
+            //    stats.first_level_node_lbs.emplace_back(child.name, child.LB);
+            //}
 
             if (child.LB < UB) {
                 stack.push_back(std::move(child));
