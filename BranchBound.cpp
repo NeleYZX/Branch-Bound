@@ -525,6 +525,12 @@ std::pair<Node, Stats> branch_and_cut(
                 child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
             }
 
+            // 2. 保持下界单调性：如果计算出的子节点 LB 小于父节点 LB，则继承父节点的 LB
+           //    cur 是当前父节点
+            if (child.LB < cur.LB) {
+                child.LB = cur.LB;
+            }
+
             // 记录第一层子节点的名称和LB
             //if (is_root_node) {
             //    stats.first_level_node_lbs.emplace_back(child.name, child.LB);
