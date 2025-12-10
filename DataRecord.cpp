@@ -8,7 +8,7 @@ std::ofstream log_stream;
 
 std::string get_log_filename(const std::string& input_filename) {
     std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = "logs_LBupdate_test_DP_firstlevel_1/";
+    std::string log_dir = "logs_LBupdate_test_DP_firstlevel_hash1/";
     fs::create_directories(log_dir);  // 创建 logs 目录（若不存在）
 
     int count = 1;

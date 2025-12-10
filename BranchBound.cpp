@@ -361,7 +361,28 @@ double compute_unassigned_lower_bound2(
 }
 
 
-//=======================Dynamic programming动态规划算法获得未分配零件的最优序列================================
+//===========================辅助结构与哈希定义===============================
+
+// 用于缓存节点信息的结构体
+struct CachedInfo {
+    double total_tardiness; // TT
+    double completion_time; // C
+    double LB;              // LB
+};
+
+// 自定义哈希函数：用于 std::vector<int>
+// 注意：为了让{1,2}和{2,1}被视为相同的key，传入的vector必须预先排序
+struct VectorHash {
+    std::size_t operator()(const std::vector<int>& v) const {
+        std::size_t seed = 0;
+        for (int i : v) {
+            // 使用 Boost 风格的 hash combine 算法
+            seed ^= std::hash<int>()(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+
 
 
 
@@ -400,6 +421,11 @@ std::pair<Node, Stats> branch_and_cut(
         }
         return cnt == parts.size();
         };
+
+    //========================= 1. 定义哈希表 =========================
+   // Key: 已分配零件的“排序后”列表 (std::vector<int>)
+   // Value: 对应的 CachedInfo (TT, C, LB)
+    std::unordered_map<std::vector<int>, CachedInfo, VectorHash> memo_table;
 
     Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
@@ -518,12 +544,66 @@ std::pair<Node, Stats> branch_and_cut(
             child.total_tardiness = compute_assigned_tardiness(child, D);
             // 如果是第一层子节点 (depth == 1)，使用较强的 LB2,否则使用较快的 LB1
 
-            if (child.depth == 1) {
-                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+//==================== 2. 利用哈希表计算/估算 LB ====================
+
+            // 2.1 构建 Key：取出所有已分配零件并【排序】
+            // 排序是关键！确保 {1, 2} 和 {2, 1} 被视为相同的状态
+            std::vector<int> assigned_key;
+            assigned_key.reserve(parts.size());
+            for (const auto& batch : child.S) {
+                assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
             }
-            else {
-                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            std::sort(assigned_key.begin(), assigned_key.end());
+
+            bool lb_calculated_from_cache = false;
+
+            // 2.2 查找哈希表
+            auto memo_it = memo_table.find(assigned_key);
+            if (memo_it != memo_table.end()) {
+                const CachedInfo& cached = memo_it->second;
+
+                // 2.3 优势关系对比 (Dominance Check)
+                // 如果当前节点(A)比缓存节点(B)“更差”（TT更大 且 C更晚），
+                // 则可以直接利用 B 的 LB 来推导 A 的 LB
+                if (child.total_tardiness >= cached.total_tardiness &&
+                    child.completion_time >= cached.completion_time) {
+
+                    // 公式：LB(A) = LB(B) + C(A) - C(B)
+                    child.LB = cached.LB + (child.completion_time - cached.completion_time);
+                    lb_calculated_from_cache = true;
+                }
             }
+
+            // 2.4 如果无法利用缓存，则正常计算 LB
+            if (!lb_calculated_from_cache) {
+                // 判断是否使用 DP（基于原代码逻辑，仅 depth==1 使用 DP）
+                bool use_dp = (child.depth == 1);
+
+                if (use_dp) {
+                    child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+                }
+                else {
+                    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+                }
+
+                // D. 存储：**仅**当使用了 DP 计算时，才考虑更新哈希表
+                if (use_dp) {
+                    if (memo_it == memo_table.end()) {
+                        // 表中不存在，直接存入
+                        memo_table[assigned_key] = { child.total_tardiness, child.completion_time, child.LB };
+                    }
+                    else {
+                        // 表中已存在，仅当当前节点比缓存节点“优”（TT更小 且 C更早）时覆盖
+                        // 这样保证缓存中始终保留该状态下最强的基准节点
+                        if (child.total_tardiness <= memo_it->second.total_tardiness &&
+                            child.completion_time <= memo_it->second.completion_time) {
+                            memo_it->second = { child.total_tardiness, child.completion_time, child.LB };
+                        }
+                    }
+                }
+            }
+            //===================================================================
+
 
             // 2. 保持下界单调性：如果计算出的子节点 LB 小于父节点 LB，则继承父节点的 LB
            //    cur 是当前父节点
