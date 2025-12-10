@@ -544,63 +544,67 @@ std::pair<Node, Stats> branch_and_cut(
             child.total_tardiness = compute_assigned_tardiness(child, D);
             // 如果是第一层子节点 (depth == 1)，使用较强的 LB2,否则使用较快的 LB1
 
-//==================== 2. 利用哈希表计算/估算 LB ====================
+            if (child.depth == 1) {
+                // 【策略】：深度1 -> DP计算 + 强制存表
+                // 虽然深度1很少重复，但高质量的LB对搜索树形状影响很大
 
-            // 2.1 构建 Key：取出所有已分配零件并【排序】
-            // 排序是关键！确保 {1, 2} 和 {2, 1} 被视为相同的状态
-            std::vector<int> assigned_key;
-            assigned_key.reserve(parts.size());
-            for (const auto& batch : child.S) {
-                assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
+                // A. DP计算
+                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+
+                // B. 存表 (Key构建开销可接受)
+                std::vector<int> assigned_key;
+                assigned_key.reserve(parts.size());
+                for (const auto& batch : child.S) assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
+                std::sort(assigned_key.begin(), assigned_key.end());
+
+                // 直接存入（深度1通常是第一次遇到该状态）
+                memo_table[assigned_key] = { child.total_tardiness, child.completion_time, child.LB };
             }
-            std::sort(assigned_key.begin(), assigned_key.end());
+            else if (child.depth == 2) {
+                // 【策略】：深度2 -> 查表 ? 复用 : 简单计算 + 存表
+                // 这里是利用 A-B 和 B-A 对称性剪枝的关键
 
-            bool lb_calculated_from_cache = false;
+                // A. 构建 Key
+                std::vector<int> assigned_key;
+                assigned_key.reserve(parts.size());
+                for (const auto& batch : child.S) assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
+                std::sort(assigned_key.begin(), assigned_key.end());
 
-            // 2.2 查找哈希表
-            auto memo_it = memo_table.find(assigned_key);
-            if (memo_it != memo_table.end()) {
-                const CachedInfo& cached = memo_it->second;
+                bool lb_found = false;
 
-                // 2.3 优势关系对比 (Dominance Check)
-                // 如果当前节点(A)比缓存节点(B)“更差”（TT更大 且 C更晚），
-                // 则可以直接利用 B 的 LB 来推导 A 的 LB
-                if (child.total_tardiness >= cached.total_tardiness &&
-                    child.completion_time >= cached.completion_time) {
-
-                    // 公式：LB(A) = LB(B) + C(A) - C(B)
-                    child.LB = cached.LB + (child.completion_time - cached.completion_time);
-                    lb_calculated_from_cache = true;
+                // B. 查表
+                auto memo_it = memo_table.find(assigned_key);
+                if (memo_it != memo_table.end()) {
+                    const CachedInfo& cached = memo_it->second;
+                    // 优势检查：如果当前节点比缓存节点“差”，则利用缓存结果
+                    if (child.total_tardiness >= cached.total_tardiness &&
+                        child.completion_time >= cached.completion_time) {
+                        child.LB = cached.LB + (child.completion_time - cached.completion_time);
+                        lb_found = true;
+                    }
                 }
-            }
 
-            // 2.4 如果无法利用缓存，则正常计算 LB
-            if (!lb_calculated_from_cache) {
-                // 判断是否使用 DP（基于原代码逻辑，仅 depth==1 使用 DP）
-                bool use_dp = (child.depth == 1);
-
-                if (use_dp) {
-                    child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
-                }
-                else {
+                // C. 未命中则：简单计算 + 存表
+                // 必须存表！否则后续同状态的节点(兄弟节点的子节点)无法查到数据
+                if (!lb_found) {
                     child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-                }
 
-                // D. 存储：**仅**当使用了 DP 计算时，才考虑更新哈希表
-                if (use_dp) {
                     if (memo_it == memo_table.end()) {
-                        // 表中不存在，直接存入
                         memo_table[assigned_key] = { child.total_tardiness, child.completion_time, child.LB };
                     }
                     else {
-                        // 表中已存在，仅当当前节点比缓存节点“优”（TT更小 且 C更早）时覆盖
-                        // 这样保证缓存中始终保留该状态下最强的基准节点
+                        // 如果当前节点比缓存更优，更新缓存
                         if (child.total_tardiness <= memo_it->second.total_tardiness &&
                             child.completion_time <= memo_it->second.completion_time) {
                             memo_it->second = { child.total_tardiness, child.completion_time, child.LB };
                         }
                     }
                 }
+            }
+            else {
+                // 【策略】：其他深度 -> 仅简单计算
+                // 不构建Key，不查表，无额外开销，保证深层搜索速度
+                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
             }
             //===================================================================
 
