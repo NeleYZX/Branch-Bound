@@ -370,14 +370,17 @@ struct CachedInfo {
     double LB;              // LB
 };
 
-// 自定义哈希函数：用于 std::vector<int>
-// 注意：为了让{1,2}和{2,1}被视为相同的key，传入的vector必须预先排序
-struct VectorHash {
-    std::size_t operator()(const std::vector<int>& v) const {
+// 【修改点 1】自定义哈希函数：用于 std::vector<bool>
+// std::vector<bool> 在 C++ 中是特化版本，空间极其紧凑（1 bit per element）
+struct VectorBoolHash {
+    std::size_t operator()(const std::vector<bool>& v) const {
         std::size_t seed = 0;
-        for (int i : v) {
-            // 使用 Boost 风格的 hash combine 算法
-            seed ^= std::hash<int>()(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        // std::vector<bool> 的哈希需要遍历。
+        // 虽然它内部是打包的，但标准迭代器访问的是 bool 代理。
+        // 对于通常的调度问题规模（几百个零件），这比排序 vector<int> 快得多。
+        for (auto b : v) {
+            // hash combine
+            seed ^= (b ? 0x9e3779b9 : 0) + (seed << 6) + (seed >> 2);
         }
         return seed;
     }
@@ -410,9 +413,14 @@ std::pair<Node, Stats> branch_and_cut(
     double machine_area = L[0] * W[0];
 
     std::vector<double> part_areas(parts.size(), 0.0);
+    // 【修改点 2】预先计算最大的 Part ID，用于确定 vector<bool> 的大小
+    int max_part_id = 0;
     for (std::size_t i = 0; i < parts.size(); ++i) {
         part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
     }
+
+    // 确保大小足以容纳最大 ID，+1 是因为 ID 是从 0 开始的索引
+    const int bitmask_size = max_part_id + 1;
 
     auto all_assigned = [&](const Node& nd) -> bool {
         std::size_t cnt = 0;
@@ -423,10 +431,10 @@ std::pair<Node, Stats> branch_and_cut(
         };
 
     //========================= 1. 定义哈希表 =========================
-   // Key: 已分配零件的“排序后”列表 (std::vector<int>)
-   // Value: 对应的 CachedInfo (TT, C, LB)
-    std::unordered_map<std::vector<int>, CachedInfo, VectorHash> memo_table;
-
+   // 【修改点 3】Key 类型更改为 std::vector<bool>，Hash 更改为 VectorBoolHash
+    // Key: 这是一个位图，索引 i 为 true 表示 ID 为 i 的零件已被分配
+    std::unordered_map<std::vector<bool>, CachedInfo, VectorBoolHash> memo_table;
+    
     Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
     root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
@@ -545,38 +553,39 @@ std::pair<Node, Stats> branch_and_cut(
             // 如果是第一层子节点 (depth == 1)，使用较强的 LB2,否则使用较快的 LB1
 
             if (child.depth == 1) {
-                // 【策略】：深度1 -> DP计算 + 强制存表
-                // 虽然深度1很少重复，但高质量的LB对搜索树形状影响很大
-
+                // 【修改点 4】构建 vector<bool> Key 而不是 vector<int>
                 // A. DP计算
                 child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
 
-                // B. 存表 (Key构建开销可接受)
-                std::vector<int> assigned_key;
-                assigned_key.reserve(parts.size());
-                for (const auto& batch : child.S) assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
-                std::sort(assigned_key.begin(), assigned_key.end());
+                // B. 存表 (Key构建：O(k)，无排序)
+                std::vector<bool> assigned_mask(bitmask_size, false);
+                for (const auto& batch : child.S) {
+                    for (int pid : batch.second) {
+                        assigned_mask[pid] = true;
+                    }
+                }
 
-                // 直接存入（深度1通常是第一次遇到该状态）
-                memo_table[assigned_key] = { child.total_tardiness, child.completion_time, child.LB };
+                // 直接存入
+                memo_table[assigned_mask] = { child.total_tardiness, child.completion_time, child.LB };
             }
             else if (child.depth == 2) {
-                // 【策略】：深度2 -> 查表 ? 复用 : 简单计算 + 存表
-                // 这里是利用 A-B 和 B-A 对称性剪枝的关键
+                // 【修改点 5】深度2 使用 vector<bool> 查表
 
                 // A. 构建 Key
-                std::vector<int> assigned_key;
-                assigned_key.reserve(parts.size());
-                for (const auto& batch : child.S) assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
-                std::sort(assigned_key.begin(), assigned_key.end());
+                std::vector<bool> assigned_mask(bitmask_size, false);
+                for (const auto& batch : child.S) {
+                    for (int pid : batch.second) {
+                        assigned_mask[pid] = true;
+                    }
+                }
 
                 bool lb_found = false;
 
                 // B. 查表
-                auto memo_it = memo_table.find(assigned_key);
+                auto memo_it = memo_table.find(assigned_mask);
                 if (memo_it != memo_table.end()) {
                     const CachedInfo& cached = memo_it->second;
-                    // 优势检查：如果当前节点比缓存节点“差”，则利用缓存结果
+                    // 优势检查
                     if (child.total_tardiness >= cached.total_tardiness &&
                         child.completion_time >= cached.completion_time) {
                         child.LB = cached.LB + (child.completion_time - cached.completion_time);
@@ -584,16 +593,15 @@ std::pair<Node, Stats> branch_and_cut(
                     }
                 }
 
-                // C. 未命中则：简单计算 + 存表
-                // 必须存表！否则后续同状态的节点(兄弟节点的子节点)无法查到数据
+                // C. 未命中则计算 + 存表
                 if (!lb_found) {
                     child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
 
                     if (memo_it == memo_table.end()) {
-                        memo_table[assigned_key] = { child.total_tardiness, child.completion_time, child.LB };
+                        memo_table[assigned_mask] = { child.total_tardiness, child.completion_time, child.LB };
                     }
                     else {
-                        // 如果当前节点比缓存更优，更新缓存
+                        // 更新缓存为更优状态
                         if (child.total_tardiness <= memo_it->second.total_tardiness &&
                             child.completion_time <= memo_it->second.completion_time) {
                             memo_it->second = { child.total_tardiness, child.completion_time, child.LB };
@@ -602,8 +610,7 @@ std::pair<Node, Stats> branch_and_cut(
                 }
             }
             else {
-                // 【策略】：其他深度 -> 仅简单计算
-                // 不构建Key，不查表，无额外开销，保证深层搜索速度
+                // 其他深度 -> 仅简单计算
                 child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
             }
             //===================================================================
