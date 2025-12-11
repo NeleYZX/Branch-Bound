@@ -409,6 +409,15 @@ std::pair<Node, Stats> branch_and_cut(
     Stats stats;
     double machine_area = L[0] * W[0];
 
+    // === [ADD] memo 开关和计数器 ===
+    const bool use_memo = true;  // 手动改成 false 就是“禁用哈希表对比实验”
+
+    std::size_t memo_lookups = 0;  //总共的查表次数（第二层进行查表的次数）
+    std::size_t memo_hits = 0;    //已分配零件相同的命中次数
+    std::size_t memo_uses = 0;    //达到计算条件直接计算的次数
+    std::size_t memo_inserts = 0;  //第一层存入的节点数
+    std::size_t memo_updates = 0;  //第二层中，未
+
     std::vector<double> part_areas(parts.size(), 0.0);
     for (std::size_t i = 0; i < parts.size(); ++i) {
         part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
@@ -551,54 +560,56 @@ std::pair<Node, Stats> branch_and_cut(
                 // A. DP计算
                 child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
 
-                // B. 存表 (Key构建开销可接受)
-                std::vector<int> assigned_key;
-                assigned_key.reserve(parts.size());
-                for (const auto& batch : child.S) assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
-                std::sort(assigned_key.begin(), assigned_key.end());
+                if (use_memo) {
+                    // B. 存表 (Key构建开销可接受)
+                    std::vector<int> assigned_key;
+                    assigned_key.reserve(parts.size());
+                    for (const auto& batch : child.S) assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
+                    std::sort(assigned_key.begin(), assigned_key.end());
 
-                // 直接存入（深度1通常是第一次遇到该状态）
-                memo_table[assigned_key] = { child.total_tardiness, child.completion_time, child.LB };
-            }
-            else if (child.depth == 2) {
-                // 【策略】：深度2 -> 查表 ? 复用 : 简单计算 + 存表
-                // 这里是利用 A-B 和 B-A 对称性剪枝的关键
-
-                // A. 构建 Key
-                std::vector<int> assigned_key;
-                assigned_key.reserve(parts.size());
-                for (const auto& batch : child.S) assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
-                std::sort(assigned_key.begin(), assigned_key.end());
-
-                bool lb_found = false;
-
-                // B. 查表
-                auto memo_it = memo_table.find(assigned_key);
-                if (memo_it != memo_table.end()) {
-                    const CachedInfo& cached = memo_it->second;
-                    // 优势检查：如果当前节点比缓存节点“差”，则利用缓存结果
-                    if (child.total_tardiness >= cached.total_tardiness &&
-                        child.completion_time >= cached.completion_time) {
-                        child.LB = cached.LB + (child.completion_time - cached.completion_time);
-                        lb_found = true;
-                    }
+                    // 直接存入（深度1通常是第一次遇到该状态）
+                    memo_table[assigned_key] = { child.total_tardiness, child.completion_time, child.LB };
+                    ++memo_inserts;  // 计一次插入
                 }
 
-                // C. 未命中则：简单计算 + 存表
-                // 必须存表！否则后续同状态的节点(兄弟节点的子节点)无法查到数据
-                if (!lb_found) {
-                    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            }
+            else if (child.depth == 2) {
+                if (use_memo) {
+                    // 【策略】：深度2 -> 查表 ? 复用 : 简单计算 + 存表
+                    // 这里是利用 A-B 和 B-A 对称性剪枝的关键
 
-                    if (memo_it == memo_table.end()) {
-                        memo_table[assigned_key] = { child.total_tardiness, child.completion_time, child.LB };
-                    }
-                    else {
-                        // 如果当前节点比缓存更优，更新缓存
-                        if (child.total_tardiness <= memo_it->second.total_tardiness &&
-                            child.completion_time <= memo_it->second.completion_time) {
-                            memo_it->second = { child.total_tardiness, child.completion_time, child.LB };
+                    // A. 构建 Key
+                    std::vector<int> assigned_key;
+                    assigned_key.reserve(parts.size());
+                    for (const auto& batch : child.S) assigned_key.insert(assigned_key.end(), batch.second.begin(), batch.second.end());
+                    std::sort(assigned_key.begin(), assigned_key.end());
+
+                    bool lb_found = false;
+
+                    ++memo_lookups;  // 统计一次查表尝试
+                    // B. 查表
+                    auto memo_it = memo_table.find(assigned_key);
+                    if (memo_it != memo_table.end()) {
+                        ++memo_hits;   // 命中一次
+                        const CachedInfo& cached = memo_it->second;
+                        // 优势检查：如果当前节点比缓存节点“差”，则利用缓存结果
+                        if (child.total_tardiness >= cached.total_tardiness &&
+                            child.completion_time >= cached.completion_time) {
+                            child.LB = cached.LB + (child.completion_time - cached.completion_time);
+                            lb_found = true;
+                            ++memo_uses;  // 实际用了缓存 LB 一次
                         }
                     }
+
+                    // C. 未命中则：简单计算 + 存表
+                    // 必须存表！否则后续同状态的节点(兄弟节点的子节点)无法查到数据
+                    if (!lb_found) {
+                        child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+                    }
+                }
+                else {
+                    // 【禁用 memo 的 depth 2 策略】：只用简单 LB1，不查表不存表
+                    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
                 }
             }
             else {
@@ -629,6 +640,14 @@ std::pair<Node, Stats> branch_and_cut(
             }
         }
     }
+
+    stats.memo_lookups = memo_lookups;
+    stats.memo_hits = memo_hits;
+    stats.memo_uses = memo_uses;
+    stats.memo_inserts = memo_inserts;
+    stats.memo_updates = memo_updates;
+
+
 
     return std::make_pair(best, stats);
 }

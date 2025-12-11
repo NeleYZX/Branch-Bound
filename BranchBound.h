@@ -110,6 +110,11 @@ struct Stats {
     int LB_pruned_nodes = 0;
     int U_pruned_nodes = 0;
     int leaf_nodes = 0;
+    int memo_lookups;
+    int memo_hits;
+    int memo_uses;
+    int memo_inserts;
+    int memo_updates;
     std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
     std::vector<std::pair<double, double>> LB_convergence;   // <时间戳, 当前最小LB>
