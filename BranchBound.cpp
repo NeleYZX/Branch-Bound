@@ -573,7 +573,8 @@ std::pair<Node, Stats> branch_and_cut(
                 }
 
             }
-            else if (child.depth == 2) {
+            //else if (child.depth == 2) {
+            else{
                 if (use_memo) {
                     // 【策略】：深度2 -> 查表 ? 复用 : 简单计算 + 存表
                     // 这里是利用 A-B 和 B-A 对称性剪枝的关键
@@ -612,11 +613,11 @@ std::pair<Node, Stats> branch_and_cut(
                     child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
                 }
             }
-            else {
-                // 【策略】：其他深度 -> 仅简单计算
-                // 不构建Key，不查表，无额外开销，保证深层搜索速度
-                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            }
+            //else {
+            //    // 【策略】：其他深度 -> 仅简单计算
+            //    // 不构建Key，不查表，无额外开销，保证深层搜索速度
+            //    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            //}
             //===================================================================
 
 
