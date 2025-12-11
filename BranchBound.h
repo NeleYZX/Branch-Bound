@@ -23,6 +23,10 @@ public:
     double total_tardiness;     // 当前已产生总延迟
     std::string name;     // 节点名称
     int depth;
+    // [ADD] 结构性优化：记录最后一个批次号和已分配零件的有序列表
+    int last_batch_id;                 // 当前节点中最大的批次号（没有批次时为 -1）
+    std::vector<int> assigned_sorted;  // 所有已分配零件 id 的有序列表
+
 
     Node();
     Node(const std::unordered_map<int, std::vector<int>>& S_,
@@ -31,6 +35,16 @@ public:
         double completion_time_ = 0.0,
         double total_tardiness_ = 0.0,
         int depth_ = 0);
+
+    // [ADD] 轻量构造函数：当我们已经知道 last_batch_id 和 assigned_sorted 时使用
+    Node(const std::unordered_map<int, std::vector<int>>& S_,
+        double LB_,
+        const std::string& name_,
+        double completion_time_,
+        double total_tardiness_,
+        int depth_,
+        int last_batch_id_,
+        std::vector<int>&& assigned_sorted_);
 
     bool operator==(const Node& other) const;
 
