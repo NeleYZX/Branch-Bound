@@ -361,7 +361,13 @@ double compute_unassigned_lower_bound2(
 }
 
 
-//=======================Dynamic programming动态规划算法获得未分配零件的最优序列================================
+int count_assigned_parts(const Node& node) {
+    int cnt = 0;
+    for (const auto& kv : node.S) {
+        cnt += static_cast<int>(kv.second.size());
+    }
+    return cnt;
+}
 
 
 
@@ -519,7 +525,16 @@ std::pair<Node, Stats> branch_and_cut(
             // 如果是第一层子节点 (depth == 1)，使用较强的 LB2,否则使用较快的 LB1
 
             if (child.depth == 1) {
-                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+                int assigned_cnt = count_assigned_parts(child);
+                if (assigned_cnt <= 10) {
+                    // 未分配很少，用 DP(LB2)
+                    child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+                }
+                else {
+                    // 未分配较多，用快速 LB1
+                    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+                }
+                //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
             }
             else {
                 child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
