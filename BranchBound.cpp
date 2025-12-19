@@ -332,7 +332,7 @@ double compute_unassigned_lower_bound2(
             D[pid]               // d
             });
     }
-    double dp_initial_time = node.completion_time;
+    double dp_initial_time = node.completion_time + ST[0] + UT[0] * min_height;
     std::vector<int> optimal_sequence_result;
     double min_tardiness = minimize_total_tardiness(dp_jobs_for_solver, dp_initial_time, optimal_sequence_result);
 
@@ -349,8 +349,8 @@ double compute_unassigned_lower_bound2(
         vol_accumulated += v[p];
 
         // 计算该零件的加工时间
-        double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
-        double completion_time = completion_time_future + processing_time; // 时刻更新为当前零件的完成时间
+        double complete_time = VT[0] * vol_accumulated;
+        double completion_time = completion_time_future + complete_time; // 时刻更新为当前零件的完成时间
         unassigned_tardiness += std::max(0.0, completion_time - D[p]);
 
 
