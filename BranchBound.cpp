@@ -332,7 +332,7 @@ double compute_unassigned_lower_bound2(
             D[pid]               // d
             });
     }
-    double dp_initial_time = node.completion_time;
+    double dp_initial_time = node.completion_time + ST[0] + UT[0] * min_height;
     std::vector<int> optimal_sequence_result;
     double min_tardiness = minimize_total_tardiness(dp_jobs_for_solver, dp_initial_time, optimal_sequence_result);
 
@@ -349,7 +349,7 @@ double compute_unassigned_lower_bound2(
         vol_accumulated += v[p];
 
         // 计算该零件的加工时间
-        double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
+        double processing_time =  VT[0] * vol_accumulated;
         double completion_time = completion_time_future + processing_time; // 时刻更新为当前零件的完成时间
         unassigned_tardiness += std::max(0.0, completion_time - D[p]);
 
@@ -573,8 +573,7 @@ std::pair<Node, Stats> branch_and_cut(
                 }
 
             }
-            //else if (child.depth == 2) {
-            else{
+            else if (child.depth == 2) {
                 if (use_memo) {
                     // 【策略】：深度2 -> 查表 ? 复用 : 简单计算 + 存表
                     // 这里是利用 A-B 和 B-A 对称性剪枝的关键
@@ -613,11 +612,11 @@ std::pair<Node, Stats> branch_and_cut(
                     child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
                 }
             }
-            //else {
-            //    // 【策略】：其他深度 -> 仅简单计算
-            //    // 不构建Key，不查表，无额外开销，保证深层搜索速度
-            //    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            //}
+            else {
+                // 【策略】：其他深度 -> 仅简单计算
+                // 不构建Key，不查表，无额外开销，保证深层搜索速度
+                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            }
             //===================================================================
 
 
