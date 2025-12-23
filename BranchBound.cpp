@@ -391,6 +391,29 @@ std::pair<Node, Stats> branch_and_cut(
 
     double machine_area = L[0] * W[0];
 
+    // ========= 新增：根据已分配/未分配数量选择 LB 的小函数 =========
+    auto compute_node_LB = [&](const Node& nd) -> double {
+        // 统计已分配零件数量
+        std::size_t assigned_cnt = 0;
+        for (const auto& kv : nd.S) {
+            assigned_cnt += kv.second.size();
+        }
+        int unassigned_cnt = static_cast<int>(parts.size() - assigned_cnt);
+
+        // 阈值：最多允许多少未分配零件时才用 DP 下界
+        // 可以根据问题规模调，比如 8~12
+        const int MAX_UNASSIGNED_FOR_DP = 10;
+
+        if (unassigned_cnt <= MAX_UNASSIGNED_FOR_DP) {
+            // 未分配数量很少，用便宜的简单下界v
+            return compute_unassigned_lower_bound(nd, parts, D, ST, VT, UT, h, v);
+        }
+        else {
+            // 未分配数量很多，用更精确的 DP 下界
+            return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v);
+        }
+        };
+
     std::vector<double> part_areas(parts.size(), 0.0);
     for (std::size_t i = 0; i < parts.size(); ++i) {
         part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
@@ -520,6 +543,7 @@ std::pair<Node, Stats> branch_and_cut(
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
             child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+            //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择
 
             // 记录第一层子节点的名称和LB
             if (is_root_node) {
