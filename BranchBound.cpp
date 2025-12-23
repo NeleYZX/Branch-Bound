@@ -337,27 +337,27 @@ double compute_unassigned_lower_bound2(
     double min_tardiness = minimize_total_tardiness(dp_jobs_for_solver, dp_initial_time, optimal_sequence_result);
 
 
-    // 初始化延迟估计
-    double unassigned_tardiness = 0.0;
-    double completion_time_future = node.completion_time;
-    double vol_accumulated = 0.0; // 当前已处理部分体积
+    //// 初始化延迟估计
+    //double unassigned_tardiness = 0.0;
+    //double completion_time_future = node.completion_time;
+    //double vol_accumulated = 0.0; // 当前已处理部分体积
 
 
-    // 假设从当前位置开始串行处理未分配的零件
-    for (int p : optimal_sequence_result) {
-        // 累加当前零件的体积
-        vol_accumulated += v[p];
+    //// 假设从当前位置开始串行处理未分配的零件
+    //for (int p : optimal_sequence_result) {
+    //    // 累加当前零件的体积
+    //    vol_accumulated += v[p];
 
-        // 计算该零件的加工时间
-        double complete_time = VT[0] * vol_accumulated;
-        double completion_time = completion_time_future + complete_time; // 时刻更新为当前零件的完成时间
-        unassigned_tardiness += std::max(0.0, completion_time - D[p]);
+    //    // 计算该零件的加工时间
+    //    double complete_time = VT[0] * vol_accumulated;
+    //    double completion_time = completion_time_future + complete_time; // 时刻更新为当前零件的完成时间
+    //    unassigned_tardiness += std::max(0.0, completion_time - D[p]);
 
 
-    }
+    //}
 
     // 返回当前延迟 + 估计的未分配延迟下界
-    return node.total_tardiness + unassigned_tardiness;
+    return node.total_tardiness + min_tardiness;
 }
 
 
@@ -386,6 +386,9 @@ std::pair<Node, Stats> branch_and_cut(
     const std::string& path
 ) {
     Stats stats;
+
+    reset_dp_memo_stats();
+
     double machine_area = L[0] * W[0];
 
     std::vector<double> part_areas(parts.size(), 0.0);
@@ -532,6 +535,11 @@ std::pair<Node, Stats> branch_and_cut(
             }
         }
     }
+
+    stats.total_V_calls = dp_memo_stats.total_V_calls;       // V() 被调用的总次数
+    stats.local_memo_hits  = dp_memo_stats.local_memo_hits;     // 命中本次调用的 memo（SubsetKey）的次数
+    stats.global_memo_hits = dp_memo_stats.global_memo_hits;    // 命中全局 global_memo 的次数（跨调用复用）
+    stats.computed_states = dp_memo_stats.computed_states;     // 真正需要计算的新状态数（没命中任何缓存）
 
     return std::make_pair(best, stats);
 }

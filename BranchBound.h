@@ -114,6 +114,10 @@ struct Stats {
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
     std::vector<std::pair<double, double>> LB_convergence;   // <时间戳, 当前最小LB>
     std::vector<std::pair<std::string, double>> first_level_node_lbs; // 新增：存储第一层子节点的名称和LB
+    long long total_V_calls;       // V() 被调用的总次数
+    long long local_memo_hits;     // 命中本次调用的 memo（SubsetKey）的次数
+    long long global_memo_hits;    // 命中全局 global_memo 的次数（跨调用复用）
+    long long computed_states;     // 真正需要计算的新状态数（没命中任何缓存）
 };
 
 std::pair<Node, Stats> branch_and_cut(

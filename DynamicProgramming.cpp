@@ -2,10 +2,42 @@
 #include <iostream>
 #include <numeric> // For std::accumulate
 #include <limits>  // For std::numeric_limits
+#include <iostream>
+#include <sstream>
 
-// 全局变量定义
+// =================== 全局统计量定义（新增） ======================
+DPMemoStats dp_memo_stats = { 0, 0, 0, 0 };
+
+void reset_dp_memo_stats() {
+    dp_memo_stats.total_V_calls = 0;
+    dp_memo_stats.local_memo_hits = 0;
+    dp_memo_stats.global_memo_hits = 0;
+    dp_memo_stats.computed_states = 0;
+}
+
+std::size_t get_global_memo_size() {
+    return global_memo.size();
+}
+
+// =================== 全局变量定义（和原来一致） ======================
 std::vector<Job> all_jobs;
 std::map<SubsetKey, DPResult> memo;
+
+// 新增：跨多次 DP 调用共享的哈希备忘录
+std::unordered_map<GlobalSubsetKey, DPResult, GlobalSubsetKeyHash> global_memo;
+
+//// =================== Job 成员函数 ======================
+//std::string Job::to_string() const {
+//    std::ostringstream oss;
+//    oss << "Job{id=" << id
+//        << ", p=" << p
+//        << ", d=" << d
+//        << ", orig_idx=" << original_input_index
+//        << "}";
+//    return oss.str();
+//}
+
+// =================== SubsetKey 实现（和原来一致） ====================
 
 // SubsetKey 构造函数实现
 SubsetKey::SubsetKey(const std::vector<int>& indices, double time) : start_time(time) {
@@ -35,17 +67,38 @@ std::string SubsetKey::to_string() const {
     return s;
 }
 
-// DPResult 构造函数实现
+// // =================== DPResult 实现（和原来一致） =====================
 DPResult::DPResult(double tardiness, int delta) : min_tardiness(tardiness), best_delta(delta) {}
 
+// =================== GlobalSubsetKey 实现（新增） ====================
+GlobalSubsetKey::GlobalSubsetKey(const std::vector<int>& ids, double t)
+    : job_ids(ids), start_time(t)
+{
+    std::sort(job_ids.begin(), job_ids.end());
+}
 
-// 调试函数实现
+bool GlobalSubsetKey::operator==(const GlobalSubsetKey& other) const {
+    return start_time == other.start_time &&
+        job_ids == other.job_ids;
+}
+
+std::size_t GlobalSubsetKeyHash::operator()(const GlobalSubsetKey& k) const noexcept {
+    std::size_t seed = std::hash<double>()(k.start_time);
+    for (int id : k.job_ids) {
+        seed ^= std::hash<int>()(id) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+    return seed;
+}
+
+// =================== 调试输出（和原来一致） =================
 void print_debug_info(const std::string& msg) {
      //std::cout << "[DEBUG] " << msg << std::endl; // 可以取消注释以查看调试信息
 }
 
-// 辅助函数：计算子集中所有作业的总处理时间
-double calculate_total_processing_time(const std::vector<int>& subset_indices_in_all_jobs) {
+// ================ 辅助函数：总处理时间（和原来一致，只是去掉 static） ==================
+double calculate_total_processing_time(
+    const std::vector<int>& subset_indices_in_all_jobs)
+{
     double total_p = 0.0;
     for (int job_idx : subset_indices_in_all_jobs) {
         total_p += all_jobs[job_idx].p;
@@ -53,14 +106,16 @@ double calculate_total_processing_time(const std::vector<int>& subset_indices_in
     return total_p;
 }
 
-// 辅助函数：在给定子集中找到处理时间最长的作业的索引 (在all_jobs中的索引)
-int get_longest_processing_time_job_index_in_all_jobs(const std::vector<int>& subset_indices_in_all_jobs) {
+// ================ 辅助函数：最长处理时间作业索引（和原来一致，只是去掉 static） =========
+int get_longest_processing_time_job_index_in_all_jobs(
+    const std::vector<int>& subset_indices_in_all_jobs)
+{
     if (subset_indices_in_all_jobs.empty()) {
         return -1;
     }
 
     double max_p = -1.0;
-    int longest_job_current_idx = -1; // 存储的是在 all_jobs 列表中的索引
+    int longest_job_current_idx = -1;
 
     for (int job_idx : subset_indices_in_all_jobs) {
         if (all_jobs[job_idx].p > max_p) {
@@ -71,21 +126,83 @@ int get_longest_processing_time_job_index_in_all_jobs(const std::vector<int>& su
     return longest_job_current_idx;
 }
 
+// ================ 新增辅助：从 memo / global_memo 查状态 ============
+static DPResult lookup_dp_result(
+    const std::vector<int>& subset_indices_in_all_jobs,
+    double t)
+{
+    SubsetKey key(subset_indices_in_all_jobs, t);
+    auto it_local = memo.find(key);
+    if (it_local != memo.end()) {
+        return it_local->second;
+    }
+
+    // 本地没有，则构造全局 key（用 job 的全局 ID）
+    std::vector<int> ids;
+    ids.reserve(subset_indices_in_all_jobs.size());
+    for (int idx : subset_indices_in_all_jobs) {
+        ids.push_back(all_jobs[idx].id);
+    }
+    GlobalSubsetKey gkey(ids, t);
+
+    auto it_global = global_memo.find(gkey);
+    if (it_global != global_memo.end()) {
+        // 顺便写回本地 memo，便于后续回溯
+        memo[key] = it_global->second;
+        return it_global->second;
+    }
+
+    // 正常不应走到这里（说明没有先调用 V）
+    throw std::runtime_error(
+        "DP state not found in memo/global_memo in reconstruct_optimal_sequence");
+}
+
+// =================== DP 核心递归函数 V ===================
 // 动态规划核心函数实现 (V 函数签名不变)
 DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
     SubsetKey current_key(subset_indices_in_all_jobs, t);
     print_debug_info("进入 V(" + current_key.to_string() + ")");
 
-    // 检查备忘录
+    ++dp_memo_stats.total_V_calls;
+
+    // ---------- 1. 构造全局 Key（job 的全局ID + t） ----------
+    std::vector<int> ids;
+    ids.reserve(subset_indices_in_all_jobs.size());
+    for (int idx : subset_indices_in_all_jobs) {
+        ids.push_back(all_jobs[idx].id);   // Job.id = 你的 pid
+    }
+    GlobalSubsetKey gkey(ids, t);
+
+    // ---------- 2. 先查本地 memo ----------
     if (memo.count(current_key)) {
-        print_debug_info("  -> 备忘录命中，返回 {Tardiness: " + std::to_string(memo[current_key].min_tardiness) + ", Delta: " + std::to_string(memo[current_key].best_delta) + "}");
+        // 统计：本地 memo 命中
+        ++dp_memo_stats.local_memo_hits;
+        print_debug_info("  -> 本地 memo 命中");
         return memo[current_key];
     }
 
-    // 初始条件
+    // ---------- 3. 再查全局 global_memo ----------
+    auto it_global = global_memo.find(gkey);
+    if (it_global != global_memo.end()) {
+        // 统计：全局缓存命中（这是跨调用/跨节点复用）
+        ++dp_memo_stats.global_memo_hits;
+        print_debug_info("  -> 全局 global_memo 命中");
+        memo[current_key] = it_global->second; // 为当前调用补一份
+        return it_global->second;
+    }
+
+    // 统计：这是一个需要“新计算”的状态
+    ++dp_memo_stats.computed_states;
+
+    // ---------- 4. 以下为你原来的“基础计算”，递推逻辑未改 ----------
+
+    // 初始条件：空集
     if (subset_indices_in_all_jobs.empty()) {
         print_debug_info("  -> 集合为空，返回 {Tardiness: 0.0, Delta: -1}");
-        return memo[current_key] = DPResult(0.0, -1);
+        DPResult res(0.0, -1);
+        memo[current_key] = res;
+        global_memo[gkey] = res;
+        return res;
     }
     if (subset_indices_in_all_jobs.size() == 1) {
         int job_idx = subset_indices_in_all_jobs[0]; // 这里 job_idx 是 all_jobs 中的索引
@@ -161,9 +278,13 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
     }
 
     print_debug_info("  -> V(" + current_key.to_string() + ") 计算完成，结果: {Tardiness: " + std::to_string(min_total_tardiness) + ", Delta: " + std::to_string(best_delta_for_current_key) + "}");
-    return memo[current_key] = DPResult(min_total_tardiness, best_delta_for_current_key);
+    DPResult res(min_total_tardiness, best_delta_for_current_key);
+    memo[current_key] = res;
+    global_memo[gkey] = res;
+    return res;
 }
 
+// =================== 最小总延迟主函数 ===================
 // 主函数：计算给定作业列表的最小总延迟
 double minimize_total_tardiness(const std::vector<Job>& jobs_input, double initial_start_time, std::vector<int>& optimal_sequence) {
     // 预处理：将 jobs_input 复制到 all_jobs 并记录原始索引，然后按 due_date 排序
@@ -202,6 +323,7 @@ double minimize_total_tardiness(const std::vector<Job>& jobs_input, double initi
     return result.min_tardiness;
 }
 
+// =================== 回溯最优序列 =======================
 // 回溯函数：从备忘录中重建最优序列
 void reconstruct_optimal_sequence(const std::vector<int>& current_subset_indices_in_all_jobs, double current_time, std::vector<int>& sequence) {
     if (current_subset_indices_in_all_jobs.empty()) {
