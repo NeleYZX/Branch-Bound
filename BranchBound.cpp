@@ -392,27 +392,27 @@ std::pair<Node, Stats> branch_and_cut(
     double machine_area = L[0] * W[0];
 
     // ========= 新增：根据已分配/未分配数量选择 LB 的小函数 =========
-    auto compute_node_LB = [&](const Node& nd) -> double {
-        // 统计已分配零件数量
-        std::size_t assigned_cnt = 0;
-        for (const auto& kv : nd.S) {
-            assigned_cnt += kv.second.size();
-        }
-        int unassigned_cnt = static_cast<int>(parts.size() - assigned_cnt);
+    //auto compute_node_LB = [&](const Node& nd) -> double {
+    //    // 统计已分配零件数量
+    //    std::size_t assigned_cnt = 0;
+    //    for (const auto& kv : nd.S) {
+    //        assigned_cnt += kv.second.size();
+    //    }
+    //    int unassigned_cnt = static_cast<int>(parts.size() - assigned_cnt);
 
-        // 阈值：最多允许多少未分配零件时才用 DP 下界
-        // 可以根据问题规模调，比如 8~12
-        const int MAX_UNASSIGNED_FOR_DP = 10;
+    //    // 阈值：最多允许多少未分配零件时才用 DP 下界
+    //    // 可以根据问题规模调，比如 8~12
+    //    const int MAX_UNASSIGNED_FOR_DP = 10;
 
-        if (unassigned_cnt <= MAX_UNASSIGNED_FOR_DP) {
-            // 未分配数量很少，用便宜的简单下界v
-            return compute_unassigned_lower_bound(nd, parts, D, ST, VT, UT, h, v);
-        }
-        else {
-            // 未分配数量很多，用更精确的 DP 下界
-            return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v);
-        }
-        };
+    //    if (unassigned_cnt <= MAX_UNASSIGNED_FOR_DP) {
+    //        // 未分配数量很少，用便宜的简单下界v
+    //        return compute_unassigned_lower_bound(nd, parts, D, ST, VT, UT, h, v);
+    //    }
+    //    else {
+    //        // 未分配数量很多，用更精确的 DP 下界
+    //        return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v);
+    //    }
+    //    };
 
     std::vector<double> part_areas(parts.size(), 0.0);
     for (std::size_t i = 0; i < parts.size(); ++i) {
@@ -543,32 +543,55 @@ std::pair<Node, Stats> branch_and_cut(
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
 
-            if (child.depth <= 2) {
+            // ========= 下界计算策略：取决于当前是广度/最佳优先还是深度优先 =========
+            if (use_best_first) {
+                // -------- 广度/最佳优先：只用简单下界 --------
                 child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+
+                // 记录第一层子节点的名称和 LB（此处是简单下界）
+                if (is_root_node) {
+                    stats.first_level_node_lbs.emplace_back(child.name, child.LB);
+                }
+
+                if (child.LB < UB) {
+                    stack.push_back(std::move(child));
+                }
+                else {
+                    ++stats.LB_pruned_nodes;
+                    ++stats.pruned_nodes_per_depth[child.depth];
+                }
             }
             else {
+                // -------- 深度优先：先简单 LB 试剪枝，不剪掉再用 DP 下界 --------
                 child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            }
 
-            
-            //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择
+                //if (LB_simple >= UB) {
+                //    // 简单下界已经不优于 UB，直接剪枝，无需 DP
+                //    ++stats.LB_pruned_nodes;
+                //    ++stats.pruned_nodes_per_depth[child.depth];
+                //    continue;
+                //}
 
-            // 记录第一层子节点的名称和LB
-            if (is_root_node) {
-                stats.first_level_node_lbs.emplace_back(child.name, child.LB);
-            }
+                //// 简单下界未剪掉，再用 DP 下界
+                //double LB_dp = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+                //child.LB = LB_dp;
 
-            if (child.LB < UB) {
-                stack.push_back(std::move(child));
-            }
-            else {
-                ++stats.LB_pruned_nodes;
-                ++stats.pruned_nodes_per_depth[child.depth];
+                if (is_root_node) {
+                    stats.first_level_node_lbs.emplace_back(child.name, child.LB);
+                }
+
+                if (child.LB < UB) {
+                    stack.push_back(std::move(child));
+                }
+                else {
+                    ++stats.LB_pruned_nodes;
+                    ++stats.pruned_nodes_per_depth[child.depth];
+                }
             }
         }
     }
 
-    stats.total_V_calls = dp_memo_stats.total_V_calls;       // V() 被调用的总次数
+    stats.total_V_calls = dp_memo_stats.total_V_calls;          // V() 被调用的总次数
     stats.local_memo_hits  = dp_memo_stats.local_memo_hits;     // 命中本次调用的 memo（SubsetKey）的次数
     stats.global_memo_hits = dp_memo_stats.global_memo_hits;    // 命中全局 global_memo 的次数（跨调用复用）
     stats.computed_states = dp_memo_stats.computed_states;     // 真正需要计算的新状态数（没命中任何缓存）
