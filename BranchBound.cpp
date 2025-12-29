@@ -542,13 +542,14 @@ std::pair<Node, Stats> branch_and_cut(
             }
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
-
-            if (child.depth <= 2) {
+            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
+            /*if (child.depth <= 2) {
                 child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
             }
             else {
                 child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            }
+            }*/
+
 
             
             //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择

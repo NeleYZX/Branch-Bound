@@ -40,9 +40,14 @@ std::unordered_map<GlobalSubsetKey, DPResult, GlobalSubsetKeyHash> global_memo;
 // =================== SubsetKey 实现（和原来一致） ====================
 
 // SubsetKey 构造函数实现
-SubsetKey::SubsetKey(const std::vector<int>& indices, double time) : start_time(time) {
-    job_indices_in_all_jobs = indices;
-    std::sort(job_indices_in_all_jobs.begin(), job_indices_in_all_jobs.end()); // 确保顺序一致，便于map查找
+SubsetKey::SubsetKey(const std::vector<int>& indices, double time)
+    : job_indices_in_all_jobs(indices), start_time(time)
+{
+#ifndef NDEBUG
+    if (!std::is_sorted(job_indices_in_all_jobs.begin(), job_indices_in_all_jobs.end())) {
+        throw std::runtime_error("SubsetKey expects sorted indices");
+    }
+#endif
 }
 
 // SubsetKey 比较运算符实现
@@ -165,21 +170,18 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
 
     ++dp_memo_stats.total_V_calls;
 
-    // ---------- 1. 构造全局 Key（job 的全局ID + t） ----------
+    // ----------1.先查本地 memo（避免无谓构造 global key）
+    auto it_local = memo.find(current_key);
+    if (it_local != memo.end()) {
+        ++dp_memo_stats.local_memo_hits;
+        return it_local->second;
+    }
+
+    // ----------2.本地 miss 才构造 global key 并查 global
     std::vector<int> ids;
     ids.reserve(subset_indices_in_all_jobs.size());
-    for (int idx : subset_indices_in_all_jobs) {
-        ids.push_back(all_jobs[idx].id);   // Job.id = 你的 pid
-    }
+    for (int idx : subset_indices_in_all_jobs) ids.push_back(all_jobs[idx].id);
     GlobalSubsetKey gkey(ids, t);
-
-    // ---------- 2. 先查本地 memo ----------
-    if (memo.count(current_key)) {
-        // 统计：本地 memo 命中
-        ++dp_memo_stats.local_memo_hits;
-        print_debug_info("  -> 本地 memo 命中");
-        return memo[current_key];
-    }
 
     // ---------- 3. 再查全局 global_memo ----------
     auto it_global = global_memo.find(gkey);
