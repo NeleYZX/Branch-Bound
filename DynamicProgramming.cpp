@@ -4,6 +4,17 @@
 #include <limits>  // For std::numeric_limits
 #include <iostream>
 #include <sstream>
+#include <iomanip>
+#include <cstring>
+
+//================复用检验================
+static std::uint64_t dbl_bits(double x) {
+    std::uint64_t u = 0;
+    static_assert(sizeof(double) == sizeof(std::uint64_t));
+    std::memcpy(&u, &x, sizeof(double));
+    return u;
+}
+
 
 // =================== 全局统计量定义（新增） ======================
 DPMemoStats dp_memo_stats = { 0, 0, 0, 0 };
@@ -153,6 +164,18 @@ static DPResult lookup_dp_result(
     auto it_global = global_memo.find(gkey);
     if (it_global != global_memo.end()) {
         // 顺便写回本地 memo，便于后续回溯
+    //#ifndef NDEBUG
+            static int printed_lookup = 0;
+            if (printed_lookup < 30) {
+                std::cerr << "[DP LOOKUP GLOBAL HIT] |S|=" << ids.size()
+                    << " t=" << std::setprecision(17) << t
+                    << " bits=0x" << std::hex << dbl_bits(t) << std::dec
+                    << " TT=" << it_global->second.min_tardiness
+                    << " delta=" << it_global->second.best_delta
+                    << "\n";
+                ++printed_lookup;
+            }
+    //#endif
         memo[key] = it_global->second;
         return it_global->second;
     }
@@ -189,6 +212,38 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
         // 统计：全局缓存命中（这是跨调用/跨节点复用）
         ++dp_memo_stats.global_memo_hits;
         print_debug_info("  -> 全局 global_memo 命中");
+//#ifndef NDEBUG
+        // 1) t 必须 bitwise 一致（不仅仅是打印出来相等）
+        const double stored_t = it_global->first.start_time;
+        if (!(stored_t == t)) {
+            std::cerr << "[DP ERROR] global hit but t not equal? "
+                << std::setprecision(17)
+                << "query t=" << t << " stored t=" << stored_t << "\n";
+            std::cerr << "bits: query=0x" << std::hex << dbl_bits(t)
+                << " stored=0x" << dbl_bits(stored_t) << std::dec << "\n";
+            throw std::runtime_error("Global memo hit with mismatched t");
+        }
+
+        // 2) 集合 S 必须一致（用 job id 比较）
+        std::vector<int> query_ids = ids;
+        std::sort(query_ids.begin(), query_ids.end());
+        if (it_global->first.job_ids != query_ids) {
+            std::cerr << "[DP ERROR] global hit but S not equal?\n";
+            throw std::runtime_error("Global memo hit with mismatched S");
+        }
+
+        // 3) 可选：抽样打印前 N 次 global 精准命中
+        static int printed = 0;
+        if (printed < 30) {
+            std::cerr << "[DP GLOBAL HIT] |S|=" << query_ids.size()
+                << " t=" << std::setprecision(17) << t
+                << " bits=0x" << std::hex << dbl_bits(t) << std::dec
+                << " TT=" << it_global->second.min_tardiness
+                << " delta=" << it_global->second.best_delta
+                << "\n";
+            ++printed;
+        }
+//#endif
         memo[current_key] = it_global->second; // 为当前调用补一份
         return it_global->second;
     }
