@@ -205,11 +205,14 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
         return res;
     }
     if (subset_indices_in_all_jobs.size() == 1) {
-        int job_idx = subset_indices_in_all_jobs[0]; // 这里 job_idx 是 all_jobs 中的索引
+        int job_idx = subset_indices_in_all_jobs[0];
         double completion_time = t + all_jobs[job_idx].p;
         double tardiness = std::max(0.0, completion_time - all_jobs[job_idx].d);
-        print_debug_info("  -> 集合大小为1 (" + all_jobs[job_idx].to_string() + ")，返回 {Tardiness: " + std::to_string(tardiness) + ", Delta: -1}");
-        return memo[current_key] = DPResult(tardiness, -1);
+
+        DPResult res(tardiness, -1);
+        memo[current_key] = res;
+        global_memo[gkey] = res;   // 关键：补上全局精确缓存
+        return res;
     }
 
     // 递归关系
@@ -295,9 +298,10 @@ double minimize_total_tardiness(const std::vector<Job>& jobs_input, double initi
         all_jobs.push_back(j);
     }
 
-    // 按照 due_date 升序排列 all_jobs
+    // 按照 due_date 升序排列 all_jobs，如果d相同无法保证顺序一致，因此复用会出现问题，用tie-breaker连接
     std::sort(all_jobs.begin(), all_jobs.end(), [](const Job& a, const Job& b) {
-        return a.d < b.d;
+        if (a.d != b.d) return a.d < b.d;
+        return a.id < b.id; // 或 return a.original_input_index < b.original_input_index;
         });
 
     // Debug: 打印排序后的 all_jobs
@@ -335,7 +339,7 @@ void reconstruct_optimal_sequence(const std::vector<int>& current_subset_indices
     }
 
     SubsetKey current_key(current_subset_indices_in_all_jobs, current_time);
-    DPResult stored_result = memo[current_key];
+    DPResult stored_result = lookup_dp_result(current_subset_indices_in_all_jobs, current_time);
     int best_delta = stored_result.best_delta;
 
     int k_prime_idx_in_all_jobs = get_longest_processing_time_job_index_in_all_jobs(current_subset_indices_in_all_jobs);
