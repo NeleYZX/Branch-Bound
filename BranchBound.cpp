@@ -396,6 +396,14 @@ std::pair<Node, Stats> branch_and_cut(
 
     double machine_area = L[0] * W[0];
 
+    std::vector<double> individual_processing_times(parts.size());
+
+    // 遍历 parts 列表的索引
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        int current_part_id = parts[i];
+        individual_processing_times[i] = ST[0] + VT[0] * v[current_part_id] + UT[0] * h[current_part_id];
+    }
+
     // ========= 新增：根据已分配/未分配数量选择 LB 的小函数 =========
     auto compute_node_LB = [&](const Node& nd) -> double {
         // 统计已分配零件数量
@@ -415,7 +423,7 @@ std::pair<Node, Stats> branch_and_cut(
         }
         else {
             // 未分配数量很多，用更精确的 DP 下界
-            return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v,);
+            return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v, individual_processing_times);
         }
         };
 
@@ -547,13 +555,14 @@ std::pair<Node, Stats> branch_and_cut(
             }
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
+            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
 
-            if (child.depth <= 2) {
-                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v);
-            }
-            else {
-                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            }
+            //if (child.depth <= 2) {
+            //    child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            //}
+            //else {
+            //    child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            //}
 
             
             //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择
