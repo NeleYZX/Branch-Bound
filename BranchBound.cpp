@@ -303,7 +303,8 @@ double compute_unassigned_lower_bound2(
     const std::vector<double>& VT,
     const std::vector<double>& UT,
     const std::vector<double>& h,
-    const std::vector<double>& v
+    const std::vector<double>& v,
+    const std::vector<double>& individual_part_processing_times
 ) {
     // 找出已分配的零件
     std::unordered_set<int> assigned;
@@ -414,7 +415,7 @@ std::pair<Node, Stats> branch_and_cut(
         }
         else {
             // 未分配数量很多，用更精确的 DP 下界
-            return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v);
+            return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v,);
         }
         };
 
