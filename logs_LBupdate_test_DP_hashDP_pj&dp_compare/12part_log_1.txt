@@ -36,15 +36,15 @@ Node(Root_2699_123_1_0):
     Batch 3: [0]
   }
 ============= The search Info =============
-The handled total nodes(pop):132968
-The number of generated nodes:7004845
+The handled total nodes(pop):27659
+The number of generated nodes:2515219
 The number of leaf nodes:25
 The times of updated best solution:25
 pruned times-Area:0
-pruned times-LB:6875006
+pruned times-LB:2491042
 pruned times-Infeasible:0
-total_V_calls:11004503
-local_memo_hits :1066921
-global_memo_hits:8763561
-computed_states :1174021
-time:40.052000s
+total_V_calls:5936677
+local_memo_hits :927647
+global_memo_hits:4009954
+computed_states :999076
+time:19.871000s

@@ -22,8 +22,8 @@ The total tardiness:319.120278
 
 ============== Start Branch and Cut Search ==============
 
-上下界记录已导出至: logs_LBupdate_test_DP_hashDP_pj&dp_compare/11part_log_1_bounds.csv
-第一层子节点 LB 信息已导出至: logs_LBupdate_test_DP_hashDP_pj&dp_compare/11part_log_1_first_level_lbs.csv
+上下界记录已导出至: logs_LBupdate_test_DP_hashDP_pj&dp_compare_1&2level/11part_log_1_bounds.csv
+第一层子节点 LB 信息已导出至: logs_LBupdate_test_DP_hashDP_pj&dp_compare_1&2level/11part_log_1_first_level_lbs.csv
 
 =============== Best Solution ===============
 Node(Root_653_45_1_0):
@@ -35,15 +35,15 @@ Node(Root_653_45_1_0):
     Batch 3: [0]
   }
 ============= The search Info =============
-The handled total nodes(pop):20198
-The number of generated nodes:1046142
+The handled total nodes(pop):41147
+The number of generated nodes:2167780
 The number of leaf nodes:16
 The times of updated best solution:16
 pruned times-Area:0
-pruned times-LB:1030439
+pruned times-LB:2131191
 pruned times-Infeasible:0
-total_V_calls:2522034
-local_memo_hits :425080
-global_memo_hits:1624585
-computed_states :472369
-time:7.788000s
+total_V_calls:703174
+local_memo_hits :189861
+global_memo_hits:332039
+computed_states :181274
+time:6.567000s

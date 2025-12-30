@@ -17,33 +17,38 @@ Parts Summary:
   Part 8: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
   Part 9: 5.000000 x 4.000000 x 7.000000, Vol = 84.000000, Support = 0.000000
   Part 10: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 11: 5.000000 x 4.000000 x 6.000000, Vol = 60.000000, Support = 0.000000
+  Part 12: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+  Part 13: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 14: 8.000000 x 8.000000 x 2.000000, Vol = 103.680000, Support = 0.000000
 
-The total tardiness:319.120278
+The total tardiness:443.919229
 
 ============== Start Branch and Cut Search ==============
 
-上下界记录已导出至: logs_LBupdate_test_DP_hashDP_pj&dp_compare/11part_log_1_bounds.csv
-第一层子节点 LB 信息已导出至: logs_LBupdate_test_DP_hashDP_pj&dp_compare/11part_log_1_first_level_lbs.csv
+上下界记录已导出至: logs_LBupdate_test_DP_hashDP_pj&dp_compare/15part_log_1_bounds.csv
+第一层子节点 LB 信息已导出至: logs_LBupdate_test_DP_hashDP_pj&dp_compare/15part_log_1_first_level_lbs.csv
 
 =============== Best Solution ===============
-Node(Root_653_45_1_0):
-  LB = 110.607
+Node(Root_11291_347_11_1_0):
+  LB = 139.061
   S = {
-    Batch 0: [1, 2, 3, 7, 9]
-    Batch 1: [4, 5, 6, 10]
-    Batch 2: [8]
-    Batch 3: [0]
+    Batch 0: [2, 3, 4, 10, 11, 13]
+    Batch 1: [5, 6, 7, 9, 14]
+    Batch 2: [8, 12]
+    Batch 3: [1]
+    Batch 4: [0]
   }
 ============= The search Info =============
-The handled total nodes(pop):20198
-The number of generated nodes:1046142
-The number of leaf nodes:16
-The times of updated best solution:16
-pruned times-Area:0
-pruned times-LB:1030439
+The handled total nodes(pop):168417
+The number of generated nodes:72056402
+The number of leaf nodes:51
+The times of updated best solution:51
+pruned times-Area:24
+pruned times-LB:71911182
 pruned times-Infeasible:0
-total_V_calls:2522034
-local_memo_hits :425080
-global_memo_hits:1624585
-computed_states :472369
-time:7.788000s
+total_V_calls:89534628
+local_memo_hits :3559851
+global_memo_hits:80324469
+computed_states :5650308
+time:860.410000s
