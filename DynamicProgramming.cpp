@@ -19,6 +19,34 @@ std::size_t get_global_memo_size() {
     return global_memo.size();
 }
 
+// =================== 新增：按子集 S 聚合的时间索引（用于快速近似复用） ====================
+struct SubsetOnlyKey {
+    std::vector<int> job_ids; // sorted
+
+    SubsetOnlyKey() = default;
+    explicit SubsetOnlyKey(const std::vector<int>& ids) : job_ids(ids) {
+        std::sort(job_ids.begin(), job_ids.end());
+    }
+
+    bool operator==(const SubsetOnlyKey& other) const {
+        return job_ids == other.job_ids;
+    }
+};
+
+struct SubsetOnlyKeyHash {
+    std::size_t operator()(const SubsetOnlyKey& k) const noexcept {
+        std::size_t seed = k.job_ids.size();
+        for (int id : k.job_ids) {
+            seed ^= std::hash<int>()(id) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+
+// S -> (t -> DPResult)，用 map 支持 lower_bound 找最近的 t0<t'
+std::unordered_map<SubsetOnlyKey, std::map<double, DPResult>, SubsetOnlyKeyHash>
+global_memo_by_subset;
+
 // =================== 全局变量定义（和原来一致） ======================
 std::vector<Job> all_jobs;
 std::map<SubsetKey, DPResult> memo;
@@ -153,9 +181,36 @@ static DPResult lookup_dp_result(
     }
 
     // 正常不应走到这里（说明没有先调用 V）
-    throw std::runtime_error(
-        "DP state not found in memo/global_memo in reconstruct_optimal_sequence");
+    // 近似复用场景下可能出现“回溯需要的子状态未物化”，这里按需计算/近似一次即可
+    return V(subset_indices_in_all_jobs, t);
 }
+
+//====================新增辅助函数：生成 sorted_ids + 统一写入 global======================
+static std::vector<int> make_sorted_ids_from_subset_indices(
+    const std::vector<int>& subset_indices_in_all_jobs)
+{
+    std::vector<int> ids;
+    ids.reserve(subset_indices_in_all_jobs.size());
+    for (int idx : subset_indices_in_all_jobs) {
+        ids.push_back(all_jobs[idx].id);
+    }
+    std::sort(ids.begin(), ids.end());
+    return ids;
+}
+
+// 同时写入 global_memo（精确key: S+t）和 global_memo_by_subset（S->t）
+static void store_global_state(
+    const std::vector<int>& sorted_ids,
+    double t,
+    const DPResult& res)
+{
+    GlobalSubsetKey gkey(sorted_ids, t); // 你的构造函数里会 sort 一次也无妨
+    global_memo[gkey] = res;
+
+    SubsetOnlyKey skey(sorted_ids);
+    global_memo_by_subset[skey][t] = res;
+}
+
 
 // =================== DP 核心递归函数 V ===================
 // 动态规划核心函数实现 (V 函数签名不变)
@@ -165,45 +220,66 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
 
     ++dp_memo_stats.total_V_calls;
 
-    // ---------- 1. 构造全局 Key（job 的全局ID + t） ----------
-    std::vector<int> ids;
-    ids.reserve(subset_indices_in_all_jobs.size());
-    for (int idx : subset_indices_in_all_jobs) {
-        ids.push_back(all_jobs[idx].id);   // Job.id = 你的 pid
-    }
-    GlobalSubsetKey gkey(ids, t);
-
-    // ---------- 2. 先查本地 memo ----------
-    if (memo.count(current_key)) {
-        // 统计：本地 memo 命中
+    // ---------- 1) 本地 memo ----------
+    auto it_local = memo.find(current_key);
+    if (it_local != memo.end()) {
         ++dp_memo_stats.local_memo_hits;
-        print_debug_info("  -> 本地 memo 命中");
-        return memo[current_key];
+        return it_local->second;
     }
 
-    // ---------- 3. 再查全局 global_memo ----------
+    // ---------- 2) 构造 sorted_ids + exact global key ----------
+    std::vector<int> sorted_ids = make_sorted_ids_from_subset_indices(subset_indices_in_all_jobs);
+    GlobalSubsetKey gkey(sorted_ids, t);
+
+    // ---------- 3) 全局精确复用 (S,t) ----------
     auto it_global = global_memo.find(gkey);
     if (it_global != global_memo.end()) {
-        // 统计：全局缓存命中（这是跨调用/跨节点复用）
         ++dp_memo_stats.global_memo_hits;
-        print_debug_info("  -> 全局 global_memo 命中");
-        memo[current_key] = it_global->second; // 为当前调用补一份
+        memo[current_key] = it_global->second;
         return it_global->second;
     }
 
-    // 统计：这是一个需要“新计算”的状态
+    // ---------- 4) 新增：同 S 不同 t 的近似复用（O(log M) 找最近 t0<t 且 TT>0） ----------
+    {
+        SubsetOnlyKey skey(sorted_ids);
+        auto itS = global_memo_by_subset.find(skey);
+        if (itS != global_memo_by_subset.end() && !itS->second.empty()) {
+            auto& timeMap = itS->second;
+
+            // 找到第一个 >= t 的位置，候选是其前一个（离 t 最近且 < t）
+            auto it = timeMap.lower_bound(t);
+
+            // 向前找第一个 TT>0 的（保证 dt 最小）
+            while (it != timeMap.begin()) {
+                --it;
+                double t0 = it->first;
+                const DPResult& base = it->second;
+
+                if (t0 < t && base.min_tardiness > 0.0) {
+                    double dt = t - t0; // dt>0
+                    DPResult approx(base.min_tardiness + dt, base.best_delta);
+
+                    memo[current_key] = approx;
+                    store_global_state(sorted_ids, t, approx);
+
+                    ++dp_memo_stats.global_memo_hits; // 语义上属于“复用”
+                    return approx;
+                }
+            }
+        }
+    }
+
+    // ---------- 5) 到这里才是真正需要递归计算 ----------
     ++dp_memo_stats.computed_states;
 
-    // ---------- 4. 以下为你原来的“基础计算”，递推逻辑未改 ----------
-
-    // 初始条件：空集
+    // ---------- 6) 原来的基础情况/递推逻辑（只改写入global的方式） ----------
     if (subset_indices_in_all_jobs.empty()) {
-        print_debug_info("  -> 集合为空，返回 {Tardiness: 0.0, Delta: -1}");
         DPResult res(0.0, -1);
         memo[current_key] = res;
-        global_memo[gkey] = res;
+        store_global_state(sorted_ids, t, res);
         return res;
     }
+
     if (subset_indices_in_all_jobs.size() == 1) {
         int job_idx = subset_indices_in_all_jobs[0];
         double completion_time = t + all_jobs[job_idx].p;
@@ -211,9 +287,10 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
 
         DPResult res(tardiness, -1);
         memo[current_key] = res;
-        global_memo[gkey] = res;   // 关键：补上全局精确缓存
+        store_global_state(sorted_ids, t, res);
         return res;
     }
+
 
     // 递归关系
     double min_total_tardiness = std::numeric_limits<double>::max();
@@ -283,7 +360,7 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
     print_debug_info("  -> V(" + current_key.to_string() + ") 计算完成，结果: {Tardiness: " + std::to_string(min_total_tardiness) + ", Delta: " + std::to_string(best_delta_for_current_key) + "}");
     DPResult res(min_total_tardiness, best_delta_for_current_key);
     memo[current_key] = res;
-    global_memo[gkey] = res;
+    store_global_state(sorted_ids, t, res);
     return res;
 }
 

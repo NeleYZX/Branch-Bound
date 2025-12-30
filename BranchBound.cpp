@@ -358,7 +358,7 @@ double compute_unassigned_lower_bound2(
     }
 
     // 返回当前延迟 + 估计的未分配延迟下界
-    return node.total_tardiness + unassigned_tardiness;
+    return node.total_tardiness + min_tardiness;
 }
 
 
@@ -551,14 +551,14 @@ std::pair<Node, Stats> branch_and_cut(
             }
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
-            //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
 
-            if (child.depth <= 2) {
+           /* if (child.depth <= 2) {
                 child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
             }
             else {
                 child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            }
+            }*/
 
             
             //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择
