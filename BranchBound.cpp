@@ -339,30 +339,45 @@ double compute_unassigned_lower_bound2(
 
 
     //// 初始化延迟估计
-    //double unassigned_tardiness = 0.0;
-    //double completion_time_future = node.completion_time;
-    //double vol_accumulated = 0.0; // 当前已处理部分体积
+    double unassigned_tardiness = 0.0;
+    double completion_time_future = node.completion_time;
+    double vol_accumulated = 0.0; // 当前已处理部分体积
 
 
     //// 假设从当前位置开始串行处理未分配的零件
-    //for (int p : optimal_sequence_result) {
+    for (int p : optimal_sequence_result) {
     ////    // 累加当前零件的体积
-    //    vol_accumulated += v[p];
+        vol_accumulated += v[p];
 
     ////    // 计算该零件的加工时间
-    //    double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
-    //    double final_processing_time = std::max(processing_time, individual_part_processing_times[p]);
+        double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
+        double final_processing_time = std::max(processing_time, individual_part_processing_times[p]);
 
-    //    double completion_time = completion_time_future + final_processing_time;
-    //    unassigned_tardiness += std::max(0.0, completion_time - D[p]);
-    //}
+        double completion_time = completion_time_future + final_processing_time;
+        unassigned_tardiness += std::max(0.0, completion_time - D[p]);
+    }
 
     // 返回当前延迟 + 估计的未分配延迟下界
     return node.total_tardiness + min_tardiness;
 }
 
+//========================= 支配规则辅助结构 =========================
+struct StateMetric {
+    double tt; // 总延迟 (Total Tardiness)
+    double c;  // 完成时间 (Completion Time)
+};
 
-//=======================Dynamic programming动态规划算法获得未分配零件的最优序列================================
+// 用于让 std::vector<int> 能作为 std::unordered_map 的 key
+struct VectorHash {
+    std::size_t operator()(const std::vector<int>& v) const {
+        std::size_t seed = 0;
+        for (int i : v) {
+            // boost::hash_combine 风格的哈希组合
+            seed ^= std::hash<int>{}(i)+0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
 
 
 
@@ -389,6 +404,13 @@ std::pair<Node, Stats> branch_and_cut(
     Stats stats;
 
     reset_dp_memo_stats();
+
+    // ----------------- 新增：支配规则映射表 -----------------
+    // Key: 已分配的零件集合（排序后的 vector）
+    // Value: 帕累托前沿列表（保存不同的 {TT, C} 组合）
+    std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash> dominance_map;
+    // -------------------------------------------------------
+
 
     double machine_area = L[0] * W[0];
 
@@ -454,6 +476,8 @@ std::pair<Node, Stats> branch_and_cut(
     int min_capa = 2000;
     bool use_best_first = true;
     static constexpr double epsilon = 1e-10;
+    static constexpr double dom_epsilon = 1e-6; // 支配比较的容差
+
 
     while (!stack.empty()) {
         auto t1 = std::chrono::steady_clock::now();
@@ -551,9 +575,9 @@ std::pair<Node, Stats> branch_and_cut(
             }
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
-            //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
 
-            double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            /*double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
             double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
 
             if (LB_serial <= LB_parallel) {
@@ -561,7 +585,7 @@ std::pair<Node, Stats> branch_and_cut(
             }
             else {
                 child.LB = LB_serial;
-            }
+            }*/
 
             
             //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择
@@ -570,6 +594,56 @@ std::pair<Node, Stats> branch_and_cut(
             if (is_root_node) {
                 stats.first_level_node_lbs.emplace_back(child.name, child.LB);
             }
+
+            // ====================== 支配规则检查开始 ======================
+
+           // 1. 构建键值：已分配的零件集合（排序后）
+            std::vector<int> assigned_key;
+            assigned_key.reserve(parts.size());
+            for (const auto& kv : child.S) {
+                assigned_key.insert(assigned_key.end(), kv.second.begin(), kv.second.end());
+            }
+            std::sort(assigned_key.begin(), assigned_key.end());
+
+            // 2. 检查是否被支配
+            auto& pareto_front = dominance_map[assigned_key];
+            bool is_dominated = false;
+
+            for (const auto& metric : pareto_front) {
+                // 如果历史记录中存在 TT 和 C 都比当前节点小（或相等）的状态
+                if (metric.tt <= child.total_tardiness + dom_epsilon &&
+                    metric.c <= child.completion_time + dom_epsilon) {
+                    is_dominated = true;
+                    break;
+                }
+            }
+
+            if (is_dominated) {
+                // 当前节点被支配，剪枝（不放入栈中）
+                // 此时也可以统计到 pruned_nodes 中，这里复用 U_pruned_nodes 或 LB_pruned_nodes
+                ++stats.U_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
+                continue;
+            }
+
+            // 3. 更新支配表（维护帕累托前沿）
+            // 如果当前节点没有被支配，则将其添加到前沿中，并移除那些被当前节点支配的历史状态
+            // 这样可以保持 vector 大小最小化
+            auto it = pareto_front.begin();
+            while (it != pareto_front.end()) {
+                // 如果当前节点比历史节点更优（TT更小且C更小），则删除历史节点
+                if (child.total_tardiness <= it->tt + dom_epsilon &&
+                    child.completion_time <= it->c + dom_epsilon) {
+                    it = pareto_front.erase(it);
+                }
+                else {
+                    ++it;
+                }
+            }
+            pareto_front.push_back({ child.total_tardiness, child.completion_time });
+
+            // ====================== 支配规则检查结束 ======================
+
 
             if (child.LB < UB) {
                 stack.push_back(std::move(child));
