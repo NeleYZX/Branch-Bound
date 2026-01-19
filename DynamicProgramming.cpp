@@ -240,7 +240,10 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
     }
 
     // ---------- 4) 新增：同 S 不同 t 的近似复用（O(log M) 找最近 t0<t 且 TT>0） ----------
-    {
+    {   //仅当最小 dt = t - t0 <= 1 才复用
+        constexpr double MAX_DT_FOR_APPROX = 1.0;
+        constexpr double EPS = 1e-12; // 防止浮点误差导致 dt=1 被误判
+
         SubsetOnlyKey skey(sorted_ids);
         auto itS = global_memo_by_subset.find(skey);
         if (itS != global_memo_by_subset.end() && !itS->second.empty()) {
@@ -255,8 +258,16 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
                 double t0 = it->first;
                 const DPResult& base = it->second;
 
-                if (t0 < t && base.min_tardiness > 0.0) {
-                    double dt = t - t0; // dt>0
+                if (!(t0 < t)) continue;
+
+                double dt = t - t0; // dt>0
+                if (dt > MAX_DT_FOR_APPROX + EPS) {
+                    // 因为这是“最接近的 t0”，dt 都已经>1，则最小 dt 也一定>1，放弃近似复用，走精确计算
+                    break;
+                }
+
+                // 只允许用 TT>0 的基准来近似
+                if (base.min_tardiness > 0.0) {
                     DPResult approx(base.min_tardiness + dt, base.best_delta);
 
                     memo[current_key] = approx;
