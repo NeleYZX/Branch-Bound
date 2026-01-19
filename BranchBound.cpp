@@ -338,27 +338,27 @@ double compute_unassigned_lower_bound2(
     double min_tardiness = minimize_total_tardiness(dp_jobs_for_solver, dp_initial_time, optimal_sequence_result);
 
 
-    // 初始化延迟估计
-    double unassigned_tardiness = 0.0;
-    double completion_time_future = node.completion_time;
-    double vol_accumulated = 0.0; // 当前已处理部分体积
+    //// 初始化延迟估计
+    //double unassigned_tardiness = 0.0;
+    //double completion_time_future = node.completion_time;
+    //double vol_accumulated = 0.0; // 当前已处理部分体积
 
 
-    // 假设从当前位置开始串行处理未分配的零件
-    for (int p : optimal_sequence_result) {
-    //    // 累加当前零件的体积
-        vol_accumulated += v[p];
+    //// 假设从当前位置开始串行处理未分配的零件
+    //for (int p : optimal_sequence_result) {
+    ////    // 累加当前零件的体积
+    //    vol_accumulated += v[p];
 
-    //    // 计算该零件的加工时间
-        double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
-        double final_processing_time = std::max(processing_time, individual_part_processing_times[p]);
+    ////    // 计算该零件的加工时间
+    //    double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
+    //    double final_processing_time = std::max(processing_time, individual_part_processing_times[p]);
 
-        double completion_time = completion_time_future + final_processing_time;
-        unassigned_tardiness += std::max(0.0, completion_time - D[p]);
-    }
+    //    double completion_time = completion_time_future + final_processing_time;
+    //    unassigned_tardiness += std::max(0.0, completion_time - D[p]);
+    //}
 
     // 返回当前延迟 + 估计的未分配延迟下界
-    return node.total_tardiness + unassigned_tardiness;
+    return node.total_tardiness + min_tardiness;
 }
 
 
@@ -553,11 +553,14 @@ std::pair<Node, Stats> branch_and_cut(
             child.total_tardiness = compute_assigned_tardiness(child, D);
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
 
-            if (child.depth <= 2) {
-                child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+
+            if (LB_serial <= LB_parallel) {
+                child.LB = LB_parallel;
             }
             else {
-                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+                child.LB = LB_serial;
             }
 
             
