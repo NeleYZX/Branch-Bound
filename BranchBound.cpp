@@ -623,27 +623,100 @@ std::pair<Node, Stats> branch_and_cut(
 
             // ====================== 支配规则检查结束 ======================
 
-            //===============================下界计算
+            //===============================下界计算=======================
+                //-----1.串行下界------
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+                //-----2.并行下界------
             //child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+                //-----3.串并行比较
+            //double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            //double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            //if (LB_serial <= LB_parallel) {
+            //   child.LB = LB_parallel;
+            //}
+            //else {
+            //    child.LB = LB_serial;
+            //}
 
-            double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            //===============================4. delta下界控制====================
 
-            if (LB_serial <= LB_parallel) {
-                child.LB = LB_parallel;
+            // 1. 先计算并行下界 (Cheap)
+            double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+
+            // 2. 如果并行下界已经超过UB，直接剪枝
+            if (lb_parallel >= UB) {
+                ++stats.LB_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
+                continue;
             }
-            else {
-                child.LB = LB_serial;
-            }
 
-            
-            //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择
+            child.LB = lb_parallel; // 暂时赋值为并行LB
 
-            // 记录第一层子节点的名称和LB
+            // 3. 计算 Delta 判断是否需要启用精确下界
+            // 确保 UB 不为0防止除零风险 (虽然 UB=0 时前面 lb>=UB 大概率已剪枝)
+            if (UB > 1e-9) {
+                double delta = (UB - lb_parallel) / UB;
+
+                // 4. 如果差距 <= 5%，启用精确下界 (Expensive Serial LB via DP)
+                if (delta <= 0.05) {
+      
+                    ++stats.delta_trigger_count;
+                    // 记录Delta启用次数
+                    double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+
+                    // 取两者的最大值作为最终 LB (理论上 Serial >= Parallel)
+                    if (lb_serial > lb_parallel) {
+                        child.LB = lb_serial;
+                    }
+                    else {
+                        ++stats.serial_missing_count;
+                    }
+
+                    // 5. 再次剪枝判断
+                    if (child.LB >= UB) {
+                        ++stats.serial_pruning_count;
+
+                        ++stats.LB_pruned_nodes;
+                        ++stats.pruned_nodes_per_depth[child.depth];
+                        continue;
+                        }
+                    }
+                }
+
+
+            // ----------------- [修改开始] -----------------
+             // 记录第一层子节点的详细信息
             if (is_root_node) {
+                // 1. 找出已分配的零件 (第一层子节点肯定只有 1 个 batch)
+                std::unordered_set<int> assigned_set;
+                for (const auto& kv : child.S) {
+                    for (int pid : kv.second) {
+                        assigned_set.insert(pid);
+                    }
+                }
+
+                // 2. 计算未分配的零件
+                std::vector<int> unassigned_parts_list;
+                unassigned_parts_list.reserve(parts.size() - assigned_set.size());
+                for (int p : parts) {
+                    if (assigned_set.find(p) == assigned_set.end()) {
+                        unassigned_parts_list.push_back(p);
+                    }
+                }
+
+                // 3. 存入 Stats (内存中快速存储)
+                stats.first_level_details.push_back({
+                    child.name,
+                    child.LB,
+                    child.completion_time,
+                    static_cast<int>(unassigned_parts_list.size()),
+                    std::move(unassigned_parts_list) // 使用 move 避免拷贝
+                    });
+
+                // 保留旧的记录以便兼容（如果不需要可以删除）
                 stats.first_level_node_lbs.emplace_back(child.name, child.LB);
             }
+            // ----------------- [修改结束] -----------------
 
 
 

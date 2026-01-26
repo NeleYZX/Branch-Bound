@@ -102,6 +102,14 @@ double compute_unassigned_lower_bound(
 );
 
 //==========================Branch and Bound========================
+struct FirstLevelNodeInfo {
+    std::string name;
+    double lb;
+    double completion_time;
+    int unassigned_count;
+    std::vector<int> unassigned_parts; // 存储未分配零件的 ID
+};
+
 struct Stats {
     int updated_solutions = 0;
     int total_nodes = 0;
@@ -113,11 +121,16 @@ struct Stats {
     std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
     std::vector<std::pair<double, double>> LB_convergence;   // <时间戳, 当前最小LB>
+    // [新增] 替换原来的 pair vector，或者新增这个详细信息的 vector
+    std::vector<FirstLevelNodeInfo> first_level_details;
     std::vector<std::pair<std::string, double>> first_level_node_lbs; // 新增：存储第一层子节点的名称和LB
     long long total_V_calls;       // V() 被调用的总次数
     long long local_memo_hits;     // 命中本次调用的 memo（SubsetKey）的次数
     long long global_memo_hits;    // 命中全局 global_memo 的次数（跨调用复用）
     long long computed_states;     // 真正需要计算的新状态数（没命中任何缓存）
+    long long delta_trigger_count = 0;   // 记录Delta策略触发次数
+    long long serial_pruning_count = 0;  // 记录并行无法剪枝但串行成功剪枝的次数
+    long long serial_missing_count = 0;  // 记录串行比并行小或相等的次数
 };
 
 std::pair<Node, Stats> branch_and_cut(
