@@ -380,8 +380,6 @@ struct VectorHash {
 };
 
 
-
-
 //========================Branch and Bound（无任何调试输出）========================
 std::pair<Node, Stats> branch_and_cut(
     const std::vector<int>& parts,
@@ -575,29 +573,10 @@ std::pair<Node, Stats> branch_and_cut(
             }
 
             child.total_tardiness = compute_assigned_tardiness(child, D);
-            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
-
-            /*double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
-
-            if (LB_serial <= LB_parallel) {
-                child.LB = LB_parallel;
-            }
-            else {
-                child.LB = LB_serial;
-            }*/
-
-            
-            //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择
-
-            // 记录第一层子节点的名称和LB
-            if (is_root_node) {
-                stats.first_level_node_lbs.emplace_back(child.name, child.LB);
-            }
 
             // ====================== 支配规则检查开始 ======================
 
-           // 1. 构建键值：已分配的零件集合（排序后）
+// 1. 构建键值：已分配的零件集合（排序后）
             std::vector<int> assigned_key;
             assigned_key.reserve(parts.size());
             for (const auto& kv : child.S) {
@@ -643,6 +622,30 @@ std::pair<Node, Stats> branch_and_cut(
             pareto_front.push_back({ child.total_tardiness, child.completion_time });
 
             // ====================== 支配规则检查结束 ======================
+
+            //===============================下界计算
+            //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            //child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+
+            double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+
+            if (LB_serial <= LB_parallel) {
+                child.LB = LB_parallel;
+            }
+            else {
+                child.LB = LB_serial;
+            }
+
+            
+            //child.LB = compute_node_LB(child);   // 根据未分配数量自动选择
+
+            // 记录第一层子节点的名称和LB
+            if (is_root_node) {
+                stats.first_level_node_lbs.emplace_back(child.name, child.LB);
+            }
+
+
 
 
             if (child.LB < UB) {
