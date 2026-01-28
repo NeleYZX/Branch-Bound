@@ -15,8 +15,28 @@ void reset_dp_memo_stats() {
     dp_memo_stats.computed_states = 0;
 }
 
-std::size_t get_global_memo_size() {
-    return global_memo.size();
+// 【新增】实现清空函数
+void clear_global_dp_cache() {
+    // 1. 强制释放 global_memo 的内存
+    // 创建一个空的临时 map，然后和全局 map 交换。
+    // 临时 map 销毁时，会带走原 global_memo 占用的巨大内存空间。
+    std::unordered_map<GlobalSubsetKey, DPResult, GlobalSubsetKeyHash> empty_global;
+    global_memo.swap(empty_global);
+
+    // 2. 强制释放 memo 的内存
+    std::map<SubsetKey, DPResult> empty_memo;
+    memo.swap(empty_memo);
+
+    // 3. 强制释放 all_jobs 的内存 (虽然它不大，但是个好习惯)
+    std::vector<Job> empty_jobs;
+    all_jobs.swap(empty_jobs);
+
+    // 4. (可选) 如果在 Windows 上，可以请求 OS 清理工作集
+    // #ifdef _WIN32
+    //     SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
+    // #endif
+
+    print_debug_info("Global DP Cache Completely Freed (Memory Released).");
 }
 
 // =================== 全局变量定义（和原来一致） ======================

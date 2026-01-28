@@ -27,6 +27,9 @@ extern DPMemoStats dp_memo_stats;
 // 重置统计量（例如在一次 branch_and_cut 开始前调用）
 void reset_dp_memo_stats();
 
+// 【新增】清空全局 DP 缓存（必须在每次新的实验 Run 开始前调用）
+void clear_global_dp_cache();
+
 // 获取当前全局缓存表的大小（global_memo.size()）
 std::size_t get_global_memo_size();
 

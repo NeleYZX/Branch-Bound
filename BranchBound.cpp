@@ -402,6 +402,7 @@ std::pair<Node, Stats> branch_and_cut(
     Stats stats;
 
     reset_dp_memo_stats();
+     clear_global_dp_cache(); // 【新增】清空上一轮实验留下的哈希表
 
     // ----------------- 新增：支配规则映射表 -----------------
     // Key: 已分配的零件集合（排序后的 vector）
@@ -627,7 +628,7 @@ std::pair<Node, Stats> branch_and_cut(
                 //-----1.串行下界------
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
                 //-----2.并行下界------
-            //child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
                 //-----3.串并行比较
             //double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
             //double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
