@@ -531,19 +531,55 @@ std::pair<Node, Stats> branch_and_cut(
         double elapsed = std::chrono::duration<double>(t1 - t0).count();
         if (time_limit_seconds > 0.0 && elapsed > time_limit_seconds) break;
 
-        // === 实时记录当前最小 LB（用于收敛曲线） ===
+        double min_LB = std::numeric_limits<double>::infinity();
+
         if (!stack.empty()) {
             double timestamp = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-            double min_LB = std::numeric_limits<double>::infinity();
+
+            // 1. 寻找全局下界 (Global Lower Bound)
+            // 遍历整个栈找到最小的 LB，这就是理论上最优解不可能低于的值
             for (const Node& nd : stack) {
                 if (nd.LB < min_LB) min_LB = nd.LB;
             }
+
+            // 修正：如果当前节点 cur 还未入栈但在处理中，min_LB 应该取 min(min_LB, cur.LB)，
+            // 但在你的逻辑里 cur 是从 stack 拿出来的，所以只看 stack 即可。
+            // 另外，min_LB 不可能超过 UB
             if (min_LB >= UB) min_LB = UB;
+
+            // 记录收敛数据 (原代码逻辑)
             if (min_LB >= 0.0 && min_LB < std::numeric_limits<double>::infinity()) {
                 if (stats.LB_convergence.empty() || std::abs(min_LB - stats.LB_convergence.back().second) > epsilon) {
                     stats.LB_convergence.emplace_back(timestamp, min_LB);
                 }
             }
+
+            // ================= [新增] MIPGap 终止条件 =================
+            // 只有当 UB 已经找到一个可行解（不是无穷大）时才计算 Gap
+            if (UB < std::numeric_limits<double>::infinity() && UB > 1e-9) {
+                // 计算 Gap: (当前最优 - 理论最优) / 当前最优
+                double mip_gap = (UB - min_LB) / UB;
+
+                // 如果 Gap 小于 1% (0.01)，则终止
+                if (mip_gap <= 0.01) {
+                    // 可以选择记录一下状态
+                    std::string gap_msg = ">> MIPGap reached: " + std::to_string(mip_gap * 100)
+                        + "% (UB=" + std::to_string(UB)
+                        + ", LB=" + std::to_string(min_LB) + ")\n";
+
+                    // 2. 使用 log_and_cout 同时输出到屏幕和文件
+                    // 注意：前提是 log_and_cout 在此处可见 (例如已包含 DataRecord.h)
+                    log_and_cout(gap_msg);
+
+                    // 3. 退出循环
+                    break;
+                }
+            }
+            else if (UB <= 1e-9 && min_LB <= 1e-9) {
+                // 特殊情况：如果 UB 已经是 0（无延迟），那 Gap 也是 0，直接终止
+                break;
+            }
+            // ==========================================================
         }
 
         // === 动态选择出栈策略 ===
