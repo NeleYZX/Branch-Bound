@@ -30,6 +30,7 @@ struct PartLists {
     std::vector<double> widths;
     std::vector<double> heights;
     std::vector<double> supports;
+    std::vector<double> due_dates;
 };
 
 // 读取机器和零件数据

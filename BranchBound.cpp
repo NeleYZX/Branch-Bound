@@ -294,6 +294,54 @@ double compute_unassigned_lower_bound(
     return node.total_tardiness + unassigned_tardiness;
 }
 
+//不使用DP算法的串行计算
+double compute_unassigned_lower_bound3(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+) {
+    // 找出已分配的零件
+    std::unordered_set<int> assigned;
+    for (const auto& [_, part_ids] : node.S) {
+        for (int pid : part_ids) {
+            assigned.insert(pid);
+        }
+    }
+
+    // 找出未分配零件的最小高度
+    double min_height = std::numeric_limits<double>::max();
+    std::vector<int> unassigned_parts;
+    for (int p : parts) {
+        if (assigned.find(p) == assigned.end()) {
+            unassigned_parts.push_back(p);
+            min_height = std::min(min_height, h[p]); // 更新最小高度
+        }
+    }
+
+    // 初始化未分配部分的延迟估计
+    double unassigned_tardiness = 0.0;
+    double vol_accumulated = 0.0;
+    for (int p : parts) {
+        if (assigned.find(p) == assigned.end()) {
+            vol_accumulated += v[p];
+
+            ////    // 计算该零件的加工时间
+            double processing_time = ST[0] + VT[0] * vol_accumulated + UT[0] * min_height;
+            // 对每个未分配零件，估算加工时间并独立批次处理
+            double c = node.completion_time + processing_time;  // 假设从当前时间并行开始
+            unassigned_tardiness += std::max(0.0, c - D[p]);
+        }
+    }
+
+    // 返回当前延迟 + 未来估计
+    return node.total_tardiness + unassigned_tardiness;
+}
+
 //提出的更加收敛的LB的计算：未分配零件串行计算
 double compute_unassigned_lower_bound2(
     const Node& node,
@@ -625,11 +673,12 @@ std::pair<Node, Stats> branch_and_cut(
             // ====================== 支配规则检查结束 ======================
 
             //===============================下界计算=======================
-                //-----1.串行下界------
+                //-------------------------------1.串行下界------
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
-                //-----2.并行下界------
-            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-                //-----3.串并行比较
+             //child.LB = compute_unassigned_lower_bound3(child, parts, D, ST, VT, UT, h, v);
+                //-------------------------------2.并行下界----------------------------------------------------
+            //child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+                //-------------------------------3.串并行比较-----------------------------------------------
             //double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
             //double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
             //if (LB_serial <= LB_parallel) {
@@ -639,9 +688,54 @@ std::pair<Node, Stats> branch_and_cut(
             //    child.LB = LB_serial;
             //}
 
-            //===============================4. delta下界控制====================
+            //-----------------------------------4. delta下界控制-------------------------------------
 
-            // 1. 先计算并行下界 (Cheap)
+            //// 1. 先计算并行下界 (Cheap)
+            //double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+
+            //// 2. 如果并行下界已经超过UB，直接剪枝
+            //if (lb_parallel >= UB) {
+            //    ++stats.LB_pruned_nodes;
+            //    ++stats.pruned_nodes_per_depth[child.depth];
+            //    continue;
+            //}
+
+            //child.LB = lb_parallel; // 暂时赋值为并行LB
+
+            //// 3. 计算 Delta 判断是否需要启用精确下界
+            //// 确保 UB 不为0防止除零风险 (虽然 UB=0 时前面 lb>=UB 大概率已剪枝)
+            //if (UB > 1e-9) {
+            //    double delta = (UB - lb_parallel) / UB;
+
+            //    // 4. 如果差距 <= 5%，启用精确下界 (Expensive Serial LB via DP)
+            //    if (delta <= 0.5) {
+      
+            //        ++stats.delta_trigger_count;
+            //        // 记录Delta启用次数
+            //        double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+
+            //        // 取两者的最大值作为最终 LB (理论上 Serial >= Parallel)
+            //        if (lb_serial > lb_parallel) {
+            //            child.LB = lb_serial;
+            //        }
+            //        else {
+            //            ++stats.serial_missing_count;
+            //        }
+
+            //        // 5. 再次剪枝判断
+            //        if (child.LB >= UB) {
+            //            ++stats.serial_pruning_count;
+
+            //            ++stats.LB_pruned_nodes;
+            //            ++stats.pruned_nodes_per_depth[child.depth];
+            //            continue;
+            //            }
+            //        }
+            //    }
+
+            //----------------------------------------5. delta下界控制与未分配比例策略-----------------------------
+
+            // 1. 先计算并行下界 (Cheap / Fast LB)
             double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
 
             // 2. 如果并行下界已经超过UB，直接剪枝
@@ -651,39 +745,228 @@ std::pair<Node, Stats> branch_and_cut(
                 continue;
             }
 
-            child.LB = lb_parallel; // 暂时赋值为并行LB
+            child.LB = lb_parallel; // 暂时默认赋值为并行LB
 
-            // 3. 计算 Delta 判断是否需要启用精确下界
-            // 确保 UB 不为0防止除零风险 (虽然 UB=0 时前面 lb>=UB 大概率已剪枝)
+            // 3. 开始多级判断
             if (UB > 1e-9) {
                 double delta = (UB - lb_parallel) / UB;
 
-                // 4. 如果差距 <= 5%，启用精确下界 (Expensive Serial LB via DP)
-                if (delta <= 0.05) {
-      
-                    ++stats.delta_trigger_count;
-                    // 记录Delta启用次数
-                    double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+                // 【优化点】第一层过滤：先看 Delta 是否足够小 (<= 10%)
+                // 如果 delta 很大（说明当前解离 UB 很远），直接跳过后续所有计算，保留 parallel LB 即可
+                if (delta <= 0.1) {
 
-                    // 取两者的最大值作为最终 LB (理论上 Serial >= Parallel)
-                    if (lb_serial > lb_parallel) {
-                        child.LB = lb_serial;
-                    }
-                    else {
-                        ++stats.serial_missing_count;
+                    // 【优化点】第二层过滤：只有通过了 Delta 检查，才计算未分配零件比例
+                    std::size_t child_assigned_count = 0;
+                    for (const auto& kv : child.S) {
+                        child_assigned_count += kv.second.size();
                     }
 
-                    // 5. 再次剪枝判断
-                    if (child.LB >= UB) {
-                        ++stats.serial_pruning_count;
+                    int child_unassigned_count = static_cast<int>(parts.size() - child_assigned_count);
+                    double unassigned_ratio = static_cast<double>(child_unassigned_count) / parts.size();
 
-                        ++stats.LB_pruned_nodes;
-                        ++stats.pruned_nodes_per_depth[child.depth];
-                        continue;
+                    // 【优化点】第三层过滤：未分配零件 > 60% 才启用昂贵的 DP 下界
+                    if ( unassigned_ratio  > 0.6) {
+
+                        ++stats.delta_trigger_count; // 记录昂贵下界的触发次数
+
+                        // 启用精确下界 (Expensive Serial LB via DP)
+                        double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+
+                        // 取两者的最大值作为最终 LB
+                        if (lb_serial > lb_parallel) {
+                            child.LB = lb_serial;
+                        }
+                        else {
+                            ++stats.serial_missing_count;
+                        }
+
+                        // 再次剪枝判断（因为 LB 变大了，可能现在能剪掉了）
+                        if (child.LB >= UB) {
+                            ++stats.serial_pruning_count;
+                            ++stats.LB_pruned_nodes;
+                            ++stats.pruned_nodes_per_depth[child.depth];
+                            continue;
                         }
                     }
                 }
+            }
 
+            //----------------------------------------6. delta下界控制与高度差策略-----------------------------
+            //// 1. 先计算并行下界 (Cheap / Fast LB)
+            //double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+
+            //// 2. 如果并行下界已经超过UB，直接剪枝
+            //if (lb_parallel >= UB) {
+            //    ++stats.LB_pruned_nodes;
+            //    ++stats.pruned_nodes_per_depth[child.depth];
+            //    continue;
+            //}
+
+            //child.LB = lb_parallel; // 暂时默认赋值为并行LB
+
+            //// 3. 开始多级判断
+            //if (UB > 1e-9) {
+            //    double delta = (UB - lb_parallel) / UB;
+
+            //    // 【优化第一层】先看 Delta 是否足够小 (<= 10%)
+            //    // 只有当节点足够优秀时，才值得去检查高度差
+            //    if (delta <= 0.5) {
+
+            //        // 【优化第二层】计算未分配零件的高度差 (h_max - h_min)
+
+            //        // A. 标记已分配零件 (使用 vector<bool> 比 set 更快)
+            //        // 假设 h 的大小覆盖了所有零件ID，用 h.size() 作为标记数组大小
+            //        std::vector<bool> is_assigned(h.size(), false);
+            //        for (const auto& kv : child.S) {
+            //            for (int pid : kv.second) {
+            //                is_assigned[pid] = true;
+            //            }
+            //        }
+
+            //        // B. 遍历找出未分配零件的最大/最小高度
+            //        double min_unassigned_h = std::numeric_limits<double>::max();
+            //        double max_unassigned_h = -std::numeric_limits<double>::max();
+            //        double sum_h = 0.0;
+            //        int count = 0;
+            //        bool has_unassigned = false;
+
+            //        for (int pid : parts) {
+            //            if (!is_assigned[pid]) {
+            //                double current_h = h[pid];
+            //                if (current_h < min_unassigned_h) min_unassigned_h = current_h;
+            //                if (current_h > max_unassigned_h) max_unassigned_h = current_h;
+            //                has_unassigned = true;
+            //                sum_h += current_h;
+            //                count++;
+            //            }
+            //        }
+
+            //        // C. 只有存在未分配零件时才进行判断
+            //        if (has_unassigned) {
+            //            double h_diff = max_unassigned_h - min_unassigned_h;
+            //            double avg_h = sum_h / count;
+            //            // 计算相对高度差
+            //            // 保护除零异常：如果所有零件高度都是0（极罕见），则 diff_ratio = 0
+            //            double relative_diff = (avg_h > 1e-6) ? (h_diff / avg_h) : 0.0;
+            //            // 【优化第三层】高度差筛选条件
+            //            // 如果高度差 > 5，说明零件参差不齐，复杂的串行排序收益可能不高，跳过计算。
+            //            // 只有高度差 <= 5 (高度相对整齐) 时，才启用昂贵的 DP 下界。
+            //            // 阈值设为 0.5 (即最大最小之差不超过平均值的一半，说明很整齐)
+            //            // 越整齐 (relative_diff 越小)，并行下界的误差越大，越需要 DP
+            //            if (relative_diff <= 1) {
+
+            //                ++stats.delta_trigger_count; // 记录触发次数
+
+            //                // 启用精确下界 (Expensive Serial LB via DP)
+            //                double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+
+            //                // 取两者的最大值作为最终 LB
+            //                if (lb_serial > lb_parallel) {
+            //                    child.LB = lb_serial;
+            //                }
+            //                else {
+            //                    ++stats.serial_missing_count;
+            //                }
+
+            //                // 再次剪枝判断
+            //                if (child.LB >= UB) {
+            //                    ++stats.serial_pruning_count;
+            //                    ++stats.LB_pruned_nodes;
+            //                    ++stats.pruned_nodes_per_depth[child.depth];
+            //                    continue;
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+
+            //----------------------------------------7. delta下界控制与复合策略-----------------------------
+            // 1. 先计算并行下界 (Cheap / Fast LB)
+            //double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+
+            //// 2. 如果并行下界已经超过UB，直接剪枝
+            //if (lb_parallel >= UB) {
+            //    ++stats.LB_pruned_nodes;
+            //    ++stats.pruned_nodes_per_depth[child.depth];
+            //    continue;
+            //}
+
+            //child.LB = lb_parallel; // 暂时默认赋值为并行LB
+
+            //// 3. 开始严格分层判断 (Layered Lazy Evaluation)
+            //if (UB > 1e-9) {
+            //    // --- Layer 1: Delta 筛选 ---
+            //    double delta = (UB - lb_parallel) / UB;
+
+            //    // 只有 Delta 足够小，才进入下一层
+            //    if (delta <= 0.1) {
+
+            //        // --- Layer 2: 未分配比例筛选 ---
+            //        // 仅计算数量，暂不关心具体是哪些零件
+            //        std::size_t assigned_count = 0;
+            //        for (const auto& kv : child.S) {
+            //            assigned_count += kv.second.size();
+            //        }
+
+            //        double unassigned_ratio = static_cast<double>(parts.size() - assigned_count) / parts.size();
+
+            //        // 只有未分配零件依然很多 (>60%)，才进入下一层
+            //        // 如果已经到了搜索树深层，剩下的零件少，没必要费劲算高度差了
+            //        if (unassigned_ratio > 0.6) {
+
+            //            // --- Layer 3: 高度差筛选 ---
+            //            // 到了这一步，才值得花时间去构建查找表并遍历高度
+
+            //            // A. 构建已分配查询表
+            //            std::vector<bool> is_assigned(h.size(), false);
+            //            for (const auto& kv : child.S) {
+            //                for (int pid : kv.second) {
+            //                    is_assigned[pid] = true;
+            //                }
+            //            }
+
+            //            // B. 遍历找最大最小高度
+            //            double min_unassigned_h = std::numeric_limits<double>::max();
+            //            double max_unassigned_h = -std::numeric_limits<double>::max();
+
+            //            // 注意：因为 ratio > 0.6，肯定存在未分配零件，不需要判空
+            //            for (int pid : parts) {
+            //                if (!is_assigned[pid]) {
+            //                    double current_h = h[pid];
+            //                    if (current_h < min_unassigned_h) min_unassigned_h = current_h;
+            //                    if (current_h > max_unassigned_h) max_unassigned_h = current_h;
+            //                }
+            //            }
+
+            //            double h_diff = max_unassigned_h - min_unassigned_h;
+
+            //            // C. 高度差判断：只有高度整齐 (<= 5) 才最终启用 DP
+            //            if (h_diff <= 5.0) {
+
+            //                ++stats.delta_trigger_count; // 记录最终触发昂贵计算的次数
+
+            //                // --- Level 4: 昂贵的 DP 下界计算 ---
+            //                double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+
+            //                // 取最大值
+            //                if (lb_serial > lb_parallel) {
+            //                    child.LB = lb_serial;
+            //                }
+            //                else {
+            //                    ++stats.serial_missing_count;
+            //                }
+
+            //                // 再次剪枝
+            //                if (child.LB >= UB) {
+            //                    ++stats.serial_pruning_count;
+            //                    ++stats.LB_pruned_nodes;
+            //                    ++stats.pruned_nodes_per_depth[child.depth];
+            //                    continue;
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
 
             // ----------------- [修改开始] -----------------
              // 记录第一层子节点的详细信息

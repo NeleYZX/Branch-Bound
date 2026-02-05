@@ -47,4 +47,4 @@ computed_states :2011
 delta_trigger_count :205
 serial_pruning_count :1
 serial_missing_count :135
-time:0.210000s
+time:0.179000s

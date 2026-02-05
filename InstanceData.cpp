@@ -61,6 +61,17 @@ bool readMachineAndParts(
         part_lists.supports.push_back(part.support);
     }
 
+    for (int i = 0; i < num_parts; ++i) {
+        double d_date;
+        if (file >> d_date) {
+            part_lists.due_dates.push_back(d_date);
+        }
+        else {
+            std::cerr << "Warning: Expected due date for part " << i + 1 << " but reached end of file or error.\n";
+            // 可以选择 break 或处理错误
+        }
+    }
+
     return true;
 }
 
