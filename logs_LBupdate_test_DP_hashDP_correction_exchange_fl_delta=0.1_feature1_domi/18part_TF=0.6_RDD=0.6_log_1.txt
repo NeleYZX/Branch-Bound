@@ -29,7 +29,7 @@ The total tardiness:437.072755
 
 ============== Start Branch and Cut Search ==============
 
-上下界记录已导出至: logs_LBupdate_test_DP_hashDP_correction_exchange_fl_p_1_domi/18part_TF=0.6_RDD=0.6_log_1_bounds.csv
+上下界记录已导出至: logs_LBupdate_test_DP_hashDP_correction_exchange_fl_delta=0.1_feature1_domi/18part_TF=0.6_RDD=0.6_log_1_bounds.csv
 
 =============== Best Solution ===============
 Node(Root_120277_932_13_0):
@@ -41,18 +41,18 @@ Node(Root_120277_932_13_0):
     Batch 3: [0]
   }
 ============= The search Info =============
-The handled total nodes(pop):697703
-The number of generated nodes:819693880
+The handled total nodes(pop):683442
+The number of generated nodes:770220654
 The number of leaf nodes:52
 The times of updated best solution:52
-pruned times-Area:89732456
-pruned times-LB:4053277
-pruned times-Infeasible:815036688
-total_V_calls:0
-local_memo_hits :0
-global_memo_hits:0
-computed_states :0
-delta_trigger_count :0
-serial_pruning_count :0
-serial_missing_count :0
-time:1913.738000s
+pruned times-Area:84048999
+pruned times-LB:4029630
+pruned times-Infeasible:765601370
+total_V_calls:3030301
+local_memo_hits :1173355
+global_memo_hits:1094492
+computed_states :762454
+delta_trigger_count :20153
+serial_pruning_count :14360
+serial_missing_count :1592
+time:1820.252000s

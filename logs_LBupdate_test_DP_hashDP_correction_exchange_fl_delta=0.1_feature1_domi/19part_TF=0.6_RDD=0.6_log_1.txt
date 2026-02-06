@@ -24,35 +24,38 @@ Parts Summary:
   Part 15: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
   Part 16: 7.000000 x 7.000000 x 5.000000, Vol = 27.500000, Support = 0.000000
   Part 17: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
+  Part 18: 8.000000 x 8.000000 x 5.000000, Vol = 75.000000, Support = 0.000000
 
-The total tardiness:437.072755
+The total tardiness:814.956858
 
 ============== Start Branch and Cut Search ==============
 
-上下界记录已导出至: logs_LBupdate_test_DP_hashDP_correction_exchange_fl_p_1_domi/18part_TF=0.6_RDD=0.6_log_3_bounds.csv
+上下界记录已导出至: logs_LBupdate_test_DP_hashDP_correction_exchange_fl_delta=0.1_feature1_domi/19part_TF=0.6_RDD=0.6_log_1_bounds.csv
 
 =============== Best Solution ===============
-Node(Root_120277_932_13_0):
-  LB = 154.824
+Node(Root_97384_5007_239_11_0_0):
+  LB = 344.391
   S = {
-    Batch 0: [5, 6, 7, 13, 15, 16, 17]
-    Batch 1: [1, 2, 3, 8, 10, 11, 12]
-    Batch 2: [4, 9, 14]
-    Batch 3: [0]
+    Batch 0: [2, 6, 7, 13, 15, 17]
+    Batch 1: [1, 5, 8, 16, 18]
+    Batch 2: [10, 11, 12, 14]
+    Batch 3: [4, 9]
+    Batch 4: [0]
+    Batch 5: [3]
   }
 ============= The search Info =============
-The handled total nodes(pop):669561
-The number of generated nodes:727103613
-The number of leaf nodes:52
-The times of updated best solution:52
-pruned times-Area:72612473
-pruned times-LB:3858082
-pruned times-Infeasible:722662132
-total_V_calls:0
-local_memo_hits :0
-global_memo_hits:0
-computed_states :0
-delta_trigger_count :0
-serial_pruning_count :0
-serial_missing_count :0
-time:1800.593000s
+The handled total nodes(pop):966826
+The number of generated nodes:1213683597
+The number of leaf nodes:149
+The times of updated best solution:149
+pruned times-Area:138564377
+pruned times-LB:7348353
+pruned times-Infeasible:1205349727
+total_V_calls:4202990
+local_memo_hits :1626049
+global_memo_hits:1532177
+computed_states :1044764
+delta_trigger_count :26478
+serial_pruning_count :10859
+serial_missing_count :3405
+time:3601.043000s

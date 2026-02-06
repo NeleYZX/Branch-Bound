@@ -3,11 +3,11 @@
   Scanning speed: 0.030864
   Recoater speed: 0.700000
   Setup time: 2.000000
-  Size: 20.000000 x 20.000000 x 32.000000
+  Size: 10.000000 x 10.000000 x 32.000000
 
 Parts Summary:
   Part 0: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
-  Part 1: 12.000000 x 12.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 1: 6.000000 x 3.000000 x 30.000000, Vol = 200.000000, Support = 0.000000
   Part 2: 7.000000 x 4.000000 x 2.000000, Vol = 20.000000, Support = 0.000000
   Part 3: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
   Part 4: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
@@ -24,35 +24,43 @@ Parts Summary:
   Part 15: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
   Part 16: 7.000000 x 7.000000 x 5.000000, Vol = 27.500000, Support = 0.000000
   Part 17: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
+  Part 18: 8.000000 x 8.000000 x 5.000000, Vol = 75.000000, Support = 0.000000
+  Part 19: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
 
-The total tardiness:437.072755
+The total tardiness:1098.718786
 
 ============== Start Branch and Cut Search ==============
 
-上下界记录已导出至: logs_LBupdate_test_DP_hashDP_correction_exchange_fl_p_1_domi/18part_TF=0.6_RDD=0.6_log_1_bounds.csv
+上下界记录已导出至: Computational_S_TF=0.6_RDD=0.6/20part_s_TF=0.6_RDD=0.6_log_1_bounds.csv
 
 =============== Best Solution ===============
-Node(Root_120277_932_13_0):
-  LB = 154.824
+Node(Root_866_790_384_102_99_68_6_11_10_0):
+  LB = 491.043
   S = {
-    Batch 0: [5, 6, 7, 13, 15, 16, 17]
-    Batch 1: [1, 2, 3, 8, 10, 11, 12]
-    Batch 2: [4, 9, 14]
-    Batch 3: [0]
+    Batch 0: [18]
+    Batch 1: [6, 7, 16]
+    Batch 2: [13, 15]
+    Batch 3: [2, 8, 11]
+    Batch 4: [12, 17]
+    Batch 5: [3, 14, 19]
+    Batch 6: [5]
+    Batch 7: [10]
+    Batch 8: [1, 4, 9]
+    Batch 9: [0]
   }
 ============= The search Info =============
-The handled total nodes(pop):697703
-The number of generated nodes:819693880
-The number of leaf nodes:52
-The times of updated best solution:52
-pruned times-Area:89732456
-pruned times-LB:4053277
-pruned times-Infeasible:815036688
-total_V_calls:0
-local_memo_hits :0
-global_memo_hits:0
-computed_states :0
-delta_trigger_count :0
-serial_pruning_count :0
+The handled total nodes(pop):5905274
+The number of generated nodes:731635745
+The number of leaf nodes:126
+The times of updated best solution:126
+pruned times-Area:-1096448190
+pruned times-LB:31525967
+pruned times-Infeasible:694199719
+total_V_calls:30728403
+local_memo_hits :12743528
+global_memo_hits:11389616
+computed_states :6595259
+delta_trigger_count :163265
+serial_pruning_count :156976
 serial_missing_count :0
-time:1913.738000s
+time:3603.323000s

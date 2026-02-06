@@ -1,0 +1,54 @@
+锘縈achine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 10.000000 x 10.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 3.000000 x 6.000000 x 32.000000, Vol = 90.000000, Support = 0.000000
+  Part 1: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 2: 7.000000 x 3.000000 x 3.000000, Vol = 30.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 4: 4.000000 x 5.000000 x 5.000000, Vol = 72.000000, Support = 0.000000
+  Part 5: 8.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 6: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 7: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 8: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+  Part 9: 5.000000 x 4.000000 x 7.000000, Vol = 84.000000, Support = 0.000000
+  Part 10: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 11: 5.000000 x 4.000000 x 6.000000, Vol = 60.000000, Support = 0.000000
+  Part 12: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+
+The total tardiness:405.037635
+
+============== Start Branch and Cut Search ==============
+
+上下界记录已导出至: Computational_S_TF=0.6_RDD=0.6/13part_s_TF=0.6_RDD=0.6_log_1_bounds.csv
+
+=============== Best Solution ===============
+Node(Root_430_133_18_5_0):
+  LB = 182.923
+  S = {
+    Batch 0: [2, 3, 9, 11]
+    Batch 1: [8, 10, 12]
+    Batch 2: [4, 5, 6]
+    Batch 3: [1, 7]
+    Batch 4: [0]
+  }
+============= The search Info =============
+The handled total nodes(pop):36593
+The number of generated nodes:2482031
+The number of leaf nodes:25
+The times of updated best solution:25
+pruned times-Area:2855604
+pruned times-LB:114885
+pruned times-Infeasible:2332761
+total_V_calls:116477
+local_memo_hits :43132
+global_memo_hits:25638
+computed_states :47707
+delta_trigger_count :1167
+serial_pruning_count :865
+serial_missing_count :0
+time:4.220000s
