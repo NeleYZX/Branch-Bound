@@ -1,0 +1,61 @@
+锘縈achine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 1: 12.000000 x 12.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 2: 7.000000 x 4.000000 x 2.000000, Vol = 20.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 4: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
+  Part 5: 10.000000 x 9.000000 x 7.000000, Vol = 76.000000, Support = 0.000000
+  Part 6: 5.000000 x 5.000000 x 5.000000, Vol = 90.000000, Support = 0.000000
+  Part 7: 5.000000 x 5.000000 x 2.000000, Vol = 13.700000, Support = 0.000000
+  Part 8: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 9: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
+  Part 10: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 11: 8.000000 x 6.000000 x 7.000000, Vol = 38.000000, Support = 0.000000
+  Part 12: 5.000000 x 5.000000 x 5.000000, Vol = 110.000000, Support = 0.000000
+  Part 13: 7.000000 x 7.000000 x 3.000000, Vol = 60.000000, Support = 0.000000
+  Part 14: 4.000000 x 4.000000 x 12.000000, Vol = 100.000000, Support = 0.000000
+  Part 15: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 16: 7.000000 x 7.000000 x 5.000000, Vol = 27.500000, Support = 0.000000
+  Part 17: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
+  Part 18: 8.000000 x 8.000000 x 5.000000, Vol = 75.000000, Support = 0.000000
+
+The total tardiness:814.956858
+
+============== Start Branch and Cut Search ==============
+
+上下界记录已导出至: case-serial/19part_TF=0.6_RDD=0.6_log_1_bounds.csv
+
+=============== Best Solution ===============
+Node(Root_97384_5007_239_11_0_0):
+  LB = 344.391
+  S = {
+    Batch 0: [2, 6, 7, 13, 15, 17]
+    Batch 1: [1, 5, 8, 16, 18]
+    Batch 2: [10, 11, 12, 14]
+    Batch 3: [4, 9]
+    Batch 4: [0]
+    Batch 5: [3]
+  }
+============= The search Info =============
+The handled total nodes(pop):967296
+The number of generated nodes:1214842674
+The number of leaf nodes:149
+The times of updated best solution:149
+pruned times-Area:138669470
+pruned times-LB:7348814
+pruned times-Infeasible:1206507943
+total_V_calls:4204998
+local_memo_hits :1626743
+global_memo_hits:1533012
+computed_states :1045243
+delta_trigger_count :26490
+serial_pruning_count :10862
+serial_missing_count :3405
+time:3601.124000s

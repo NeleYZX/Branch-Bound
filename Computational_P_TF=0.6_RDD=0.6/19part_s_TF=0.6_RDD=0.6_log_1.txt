@@ -30,7 +30,7 @@ The total tardiness:1329.809939
 
 ============== Start Branch and Cut Search ==============
 
-上下界记录已导出至: Computational_P_TF=0.6_RDD=0.6/19part_s_TF=0.6_RDD=0.6_log_1_bounds.csv
+   陆  录 训     : Computational_P_TF=0.6_RDD=0.6/19part_s_TF=0.6_RDD=0.6_log_1_bounds.csv
 
 =============== Best Solution ===============
 Node(Root_52_276_283_87_61_11_20_17_0_0):

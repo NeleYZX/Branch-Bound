@@ -1,0 +1,56 @@
+锘縈achine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 1: 12.000000 x 12.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 2: 7.000000 x 4.000000 x 2.000000, Vol = 20.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 4: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
+  Part 5: 10.000000 x 9.000000 x 7.000000, Vol = 76.000000, Support = 0.000000
+  Part 6: 5.000000 x 5.000000 x 5.000000, Vol = 90.000000, Support = 0.000000
+  Part 7: 5.000000 x 5.000000 x 2.000000, Vol = 13.700000, Support = 0.000000
+  Part 8: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 9: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
+  Part 10: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 11: 8.000000 x 6.000000 x 7.000000, Vol = 38.000000, Support = 0.000000
+  Part 12: 5.000000 x 5.000000 x 5.000000, Vol = 110.000000, Support = 0.000000
+  Part 13: 7.000000 x 7.000000 x 3.000000, Vol = 60.000000, Support = 0.000000
+  Part 14: 4.000000 x 4.000000 x 12.000000, Vol = 100.000000, Support = 0.000000
+  Part 15: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 16: 7.000000 x 7.000000 x 5.000000, Vol = 27.500000, Support = 0.000000
+
+The total tardiness:153.572894
+
+============== Start Branch and Cut Search ==============
+
+上下界记录已导出至: case-serial/17part_TF=0.3_RDD=0.3_log_1_bounds.csv
+
+=============== Best Solution ===============
+Node(Root_73029_125_0):
+  LB = 58.6064
+  S = {
+    Batch 0: [4, 5, 6, 7, 9, 11, 12, 14, 15, 16]
+    Batch 1: [1, 2, 3, 8, 10, 13]
+    Batch 2: [0]
+  }
+============= The search Info =============
+The handled total nodes(pop):146448
+The number of generated nodes:126100962
+The number of leaf nodes:10
+The times of updated best solution:10
+pruned times-Area:12386317
+pruned times-LB:650729
+pruned times-Infeasible:125313045
+total_V_calls:115970
+local_memo_hits :62635
+global_memo_hits:16904
+computed_states :36431
+delta_trigger_count :168
+serial_pruning_count :163
+serial_missing_count :4
+time:232.973000s
