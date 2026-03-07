@@ -1,0 +1,51 @@
+锘縈achine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 3.000000 x 6.000000 x 32.000000, Vol = 90.000000, Support = 0.000000
+  Part 1: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 2: 7.000000 x 3.000000 x 3.000000, Vol = 30.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 4: 4.000000 x 5.000000 x 5.000000, Vol = 72.000000, Support = 0.000000
+  Part 5: 8.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 6: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 7: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 8: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+  Part 9: 5.000000 x 4.000000 x 7.000000, Vol = 84.000000, Support = 0.000000
+  Part 10: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+
+The total tardiness:332.120278
+
+============== Start Branch and Cut Search ==============
+
+上下界记录已导出至: case-serial-only/11part_TF=0.6_RDD=0.3_log_1_bounds.csv
+
+=============== Best Solution ===============
+Node(Root_1723_11_1_0):
+  LB = 108.347
+  S = {
+    Batch 0: [2, 3, 4, 5, 7, 9, 10]
+    Batch 1: [6, 8]
+    Batch 2: [1]
+    Batch 3: [0]
+  }
+============= The search Info =============
+The handled total nodes(pop):8573
+The number of generated nodes:258923
+The number of leaf nodes:7
+The times of updated best solution:7
+pruned times-Area:0
+pruned times-LB:11877
+pruned times-Infeasible:242431
+total_V_calls:417586
+local_memo_hits :119458
+global_memo_hits:161511
+computed_states :136617
+delta_trigger_count :0
+serial_pruning_count :0
+serial_missing_count :0
+time:1.242000s

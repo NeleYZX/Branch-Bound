@@ -1,0 +1,56 @@
+锘縈achine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 3.000000 x 6.000000 x 32.000000, Vol = 90.000000, Support = 0.000000
+  Part 1: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 2: 7.000000 x 3.000000 x 3.000000, Vol = 30.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 4: 4.000000 x 5.000000 x 5.000000, Vol = 72.000000, Support = 0.000000
+  Part 5: 8.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 6: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 7: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 8: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+  Part 9: 5.000000 x 4.000000 x 7.000000, Vol = 84.000000, Support = 0.000000
+  Part 10: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 30.000000
+  Part 11: 5.000000 x 4.000000 x 6.000000, Vol = 60.000000, Support = 0.000000
+  Part 12: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+  Part 13: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 14: 8.000000 x 8.000000 x 2.000000, Vol = 103.680000, Support = 0.000000
+
+The total tardiness:431.919229
+
+============== Start Branch and Cut Search ==============
+
+上下界记录已导出至: case-serial-only/15part_TF=0.6_RDD=0.3_log_1_bounds.csv
+
+=============== Best Solution ===============
+Node(Root_11931_75_11_1_0):
+  LB = 129.83
+  S = {
+    Batch 0: [2, 3, 4, 7, 9, 10, 11, 13]
+    Batch 1: [5, 6, 14]
+    Batch 2: [8, 12]
+    Batch 3: [1]
+    Batch 4: [0]
+  }
+============= The search Info =============
+The handled total nodes(pop):79184
+The number of generated nodes:17865858
+The number of leaf nodes:33
+The times of updated best solution:33
+pruned times-Area:24
+pruned times-LB:200537
+pruned times-Infeasible:17603815
+total_V_calls:4098477
+local_memo_hits :818372
+global_memo_hits:1980013
+computed_states :1300092
+delta_trigger_count :0
+serial_pruning_count :0
+serial_missing_count :0
+time:37.305000s

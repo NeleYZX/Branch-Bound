@@ -674,7 +674,7 @@ std::pair<Node, Stats> branch_and_cut(
 
             //===============================下界计算=======================
                 //-------------------------------1.串行下界------
-            //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
              //child.LB = compute_unassigned_lower_bound3(child, parts, D, ST, VT, UT, h, v);
                 //-------------------------------2.并行下界----------------------------------------------------
             //child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
@@ -735,61 +735,61 @@ std::pair<Node, Stats> branch_and_cut(
 
             //----------------------------------------5. delta下界控制与未分配比例策略-----------------------------
 
-            // 1. 先计算并行下界 (Cheap / Fast LB)
-            double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            //// 1. 先计算并行下界 (Cheap / Fast LB)
+            //double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
 
-            // 2. 如果并行下界已经超过UB，直接剪枝
-            if (lb_parallel >= UB) {
-                ++stats.LB_pruned_nodes;
-                ++stats.pruned_nodes_per_depth[child.depth];
-                continue;
-            }
+            //// 2. 如果并行下界已经超过UB，直接剪枝
+            //if (lb_parallel >= UB) {
+            //    ++stats.LB_pruned_nodes;
+            //    ++stats.pruned_nodes_per_depth[child.depth];
+            //    continue;
+            //}
 
-            child.LB = lb_parallel; // 暂时默认赋值为并行LB
+            //child.LB = lb_parallel; // 暂时默认赋值为并行LB
 
-            // 3. 开始多级判断
-            if (UB > 1e-9) {
-                double delta = (UB - lb_parallel) / UB;
+            //// 3. 开始多级判断
+            //if (UB > 1e-9) {
+            //    double delta = (UB - lb_parallel) / UB;
 
-                // 【优化点】第一层过滤：先看 Delta 是否足够小 (<= 10%)
-                // 如果 delta 很大（说明当前解离 UB 很远），直接跳过后续所有计算，保留 parallel LB 即可
-                if (delta <= 0.1) {
+            //    // 【优化点】第一层过滤：先看 Delta 是否足够小 (<= 10%)
+            //    // 如果 delta 很大（说明当前解离 UB 很远），直接跳过后续所有计算，保留 parallel LB 即可
+            //    if (delta <= 0.1) {
 
-                    // 【优化点】第二层过滤：只有通过了 Delta 检查，才计算未分配零件比例
-                    std::size_t child_assigned_count = 0;
-                    for (const auto& kv : child.S) {
-                        child_assigned_count += kv.second.size();
-                    }
+            //        // 【优化点】第二层过滤：只有通过了 Delta 检查，才计算未分配零件比例
+            //        std::size_t child_assigned_count = 0;
+            //        for (const auto& kv : child.S) {
+            //            child_assigned_count += kv.second.size();
+            //        }
 
-                    int child_unassigned_count = static_cast<int>(parts.size() - child_assigned_count);
-                    double unassigned_ratio = static_cast<double>(child_unassigned_count) / parts.size();
+            //        int child_unassigned_count = static_cast<int>(parts.size() - child_assigned_count);
+            //        double unassigned_ratio = static_cast<double>(child_unassigned_count) / parts.size();
 
-                    // 【优化点】第三层过滤：未分配零件 > 60% 才启用昂贵的 DP 下界
-                    if ( unassigned_ratio  > 0.6) {
+            //        // 【优化点】第三层过滤：未分配零件 > 60% 才启用昂贵的 DP 下界
+            //        if ( unassigned_ratio  > 0.6) {
 
-                        ++stats.delta_trigger_count; // 记录昂贵下界的触发次数
+            //            ++stats.delta_trigger_count; // 记录昂贵下界的触发次数
 
-                        // 启用精确下界 (Expensive Serial LB via DP)
-                        double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
+            //            // 启用精确下界 (Expensive Serial LB via DP)
+            //            double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
 
-                        // 取两者的最大值作为最终 LB
-                        if (lb_serial > lb_parallel) {
-                            child.LB = lb_serial;
-                        }
-                        else {
-                            ++stats.serial_missing_count;
-                        }
+            //            // 取两者的最大值作为最终 LB
+            //            if (lb_serial > lb_parallel) {
+            //                child.LB = lb_serial;
+            //            }
+            //            else {
+            //                ++stats.serial_missing_count;
+            //            }
 
-                        // 再次剪枝判断（因为 LB 变大了，可能现在能剪掉了）
-                        if (child.LB >= UB) {
-                            ++stats.serial_pruning_count;
-                            ++stats.LB_pruned_nodes;
-                            ++stats.pruned_nodes_per_depth[child.depth];
-                            continue;
-                        }
-                    }
-                }
-            }
+            //            // 再次剪枝判断（因为 LB 变大了，可能现在能剪掉了）
+            //            if (child.LB >= UB) {
+            //                ++stats.serial_pruning_count;
+            //                ++stats.LB_pruned_nodes;
+            //                ++stats.pruned_nodes_per_depth[child.depth];
+            //                continue;
+            //            }
+            //        }
+            //    }
+            //}
 
             //----------------------------------------6. delta下界控制与高度差策略-----------------------------
             //// 1. 先计算并行下界 (Cheap / Fast LB)
