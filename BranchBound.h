@@ -41,7 +41,26 @@ public:
     };
 };
 
-//std::ostream& operator<<(std::ostream& os, const Node& node);
+
+//========================= 支配规则辅助结构 =========================
+struct StateMetric {
+    double tt; // 总延迟 (Total Tardiness)
+    double c;  // 完成时间 (Completion Time)
+};
+
+// 用于让 std::vector<int> 能作为 std::unordered_map 的 key
+struct VectorHash {
+    std::size_t operator()(const std::vector<int>& v) const {
+        std::size_t seed = 0;
+        for (int i : v) {
+            // boost::hash_combine 风格的哈希组合
+            seed ^= std::hash<int>{}(i)+0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+
+
 
 //========================生成初始解==============================
 typedef std::map<int, std::set<int>> BatchMap;
@@ -66,27 +85,25 @@ struct ChildGenerationResult {
     int pruned_count;
 };
 
-
-//std::vector<Node> generate_children(
-//    const Node& node,
-//    const std::vector<int>& parts,
-//    double machine_area,
-//    const std::vector<double>& part_areas
-//);
+// [修改]：取消原本的注释，并声明子节点生成函数
+ChildGenerationResult generate_children(
+    const Node& node,
+    const std::vector<int>& parts,
+    double machine_area,
+    const std::vector<double>& part_areas
+);
 
 
 //=========================下界计算================================
-std::unordered_map<int, double> compute_completion_times(
-    const Node& node,
+// [删除]：删除了原本的 compute_completion_times 和 compute_assigned_tardiness 的声明
+// [新增]：声明全新的全局状态重算函数 update_node_metrics
+void update_node_metrics(
+    Node& node,
     const std::vector<double>& ST,
     const std::vector<double>& VT,
     const std::vector<double>& UT,
     const std::vector<double>& h,
-    const std::vector<double>& v
-);
-
-double compute_assigned_tardiness(
-    const Node& node,
+    const std::vector<double>& v,
     const std::vector<double>& D
 );
 
