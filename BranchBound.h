@@ -169,5 +169,32 @@ std::pair<Node, Stats> branch_and_cut(
     const std::string& path
 );
 
+//==========================分支过程追踪（教学/调试用）========================
+// 在【小算例】上以深度优先方式打印 Type I / Type II 的分支过程：
+// 对每个被访问的节点打印其批次构成、LB、完成时间 C 与已产生总延误 TT，
+// 并逐一列出它生成的 Type I / Type II 子节点（标注加入了哪个零件、是否触发剪枝）。
+// 该函数与 branch_and_cut 复用同一套 generate_children / update_node_metrics / 下界，
+// 因此打印出的就是算法真实的分支行为，仅用于观察，不参与正式实验。
+void trace_branch_and_bound(
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& L,
+    const std::vector<double>& W,
+    const std::vector<double>& l,
+    const std::vector<double>& w,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    double UB,
+    std::ostream& os = std::cout,
+    long long max_nodes = 100000
+);
+
+// 内置 4 零件小算例的一键追踪入口（实现在 BranchBound.cpp）。
+// 在 main() 里加一行 run_branch_trace_example(); 即可打印整棵分支树。
+void run_branch_trace_example();
+
 
 #endif // BRANCH_BOUND_H

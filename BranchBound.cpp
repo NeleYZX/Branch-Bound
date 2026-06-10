@@ -7,6 +7,8 @@
 #include <unordered_set>
 #include <vector>
 #include <string>
+#include <functional>
+#include <iomanip>
 #include "DynamicProgramming.h"
 
 //=========================生成初始解（无任何调试输出）=========================
@@ -127,7 +129,21 @@ std::ostream& operator<<(std::ostream& os, const Node& node) {
 }
 
 //=======================子节点生成（Type I & Type II）========================
-// [修改]：完全替换了基于二进制掩码（Powerset）的生成方式，改为平行的 Type 1 和 Type 2 节点生成逻辑
+// 本函数实现 Azizoglu & Webster (2000) 的增量式分支策略：
+// 在已固定若干批次（B_1, ..., B_r，按时间先后排列）的部分调度上，
+// 通过两类“添加动作”逐个把未排零件接入调度，从而枚举出所有可行调度：
+//   - Type I 添加：把一个未排零件放入一个【全新批次】 B_{r+1}（等价于“封口”当前批次 B_r）；
+//   - Type II 添加：把一个未排零件放入【当前最后一个批次】 B_r。
+//
+// 与文献的对应关系（已针对本文 AM / 总延误 模型做了模型相关的取舍，详见论文方法节）：
+//   * Type II 仅保留两条与目标函数无关、纯结构性的过滤条件：
+//       (v)  加入后不得超出平台容量 L×W（容量可行性）；
+//       (vi) 仅当新零件下标大于当前批次内所有零件下标时才允许加入（对称性消除，避免重复枚举同一集合）。
+//   * 文献中针对 Type I 的支配过滤条件 (i)-(iv) 基于“批加工时间 = 批内最大 p_j”及
+//     “按 p/w 升序排批次”等性质，仅对 总加权完成时间 目标成立；
+//     在本文 P_b = S + V·Σv_j + U·max h_j 的 M-batch + 总延误 模型下这些性质不成立，
+//     故此处【不施加】(i)-(iv)，对每个未排零件无条件生成其 Type I 子节点，
+//     其作用由状态支配规则（Su 相同时比较 (TT, C)）在子节点评估阶段替代承担。
 ChildGenerationResult generate_children(
     const Node& node,
     const std::vector<int>& parts,
@@ -135,19 +151,17 @@ ChildGenerationResult generate_children(
     const std::vector<double>& part_areas
 ) {
     std::unordered_set<int> assigned;
-    int max_batch_id = -1;
-    double current_batch_area = 0.0;
-    int max_pid_in_current_batch = -1;
+    int max_batch_id = -1;                 // 当前最后一个批次 B_r 的下标（根节点为 -1）
+    double current_batch_area = 0.0;       // 当前批次 B_r 已占用的投影面积 a(B_r)
+    int max_pid_in_current_batch = -1;     // 当前批次 B_r 内零件的最大下标（用于条件 vi）
 
-    // 1. 解析父节点状态，定位最新批次 (max_batch_id) 及其属性
+    // 1. 解析父节点状态：找出已排零件集合、定位当前最后批次 B_r 及其属性
     for (const auto& kv : node.S) {
         max_batch_id = std::max(max_batch_id, kv.first);
         for (int pid : kv.second) {
             assigned.insert(pid);
         }
     }
-
-    // 提取当前最新批次的面积和最大零件索引（用于对称性剪枝）
     if (max_batch_id >= 0) {
         for (int pid : node.S.at(max_batch_id)) {
             current_batch_area += part_areas[pid];
@@ -155,52 +169,55 @@ ChildGenerationResult generate_children(
         }
     }
 
-    // 2. 筛选未分配的零件
+    // 2. 按零件原始下标顺序筛选未排零件（固定枚举顺序，配合条件 vi 消除对称）
     std::vector<int> unassigned;
     for (int p : parts) {
         if (assigned.find(p) == assigned.end()) {
             unassigned.push_back(p);
         }
     }
-
     if (unassigned.empty()) return { {}, 0 };
 
     std::vector<Node> children;
+    children.reserve(unassigned.size() * 2);
     int pruned_count = 0;
     int child_index = 0;
 
-    // 3. 对每个未分配零件分别并行尝试 Type I 和 Type II
+    // ============================================================
+    // 第一步（Phase 1）：生成 Type I 子节点 —— 为每个未排零件开一个新批次
+    // 文献：根节点处即由此步生成 n 个“首批次只含单个零件”的子节点；
+    //       一般节点处则对应“封口当前批次、另起新批次”。本模型不施加 (i)-(iv)。
+    // ============================================================
     for (int pid : unassigned) {
-
-        // ---------------------------------------------------------
-        // Type I: 开辟新批次 (无条件允许)
-        // ---------------------------------------------------------
         auto S_type1 = node.S;
-        S_type1[max_batch_id + 1] = { pid };
+        S_type1[max_batch_id + 1] = { pid };   // 开新批次 B_{r+1}，仅含 pid
         std::string name1 = node.name + "_T1_" + std::to_string(child_index++);
 
         children.emplace_back(
             std::move(S_type1),
-            0.0, // LB 稍后计算
+            0.0,                 // LB 由调用方稍后计算
             name1,
-            0.0, // completion_time 稍后由更新函数统一计算
-            0.0, // total_tardiness 稍后由更新函数统一计算
+            0.0,                 // completion_time 由 update_node_metrics 统一重算
+            0.0,                 // total_tardiness 同上
             node.depth + 1
         );
+    }
 
-        // ---------------------------------------------------------
-        // Type II: 加入当前最新批次 (需满足容量与对称性约束)
-        // ---------------------------------------------------------
-        if (max_batch_id >= 0) {
-            // 约束 1: 容量约束
+    // ============================================================
+    // 第二步（Phase 2）：生成 Type II 子节点 —— 把未排零件并入当前批次 B_r
+    // 仅保留满足 (v) 容量可行 与 (vi) 下标递增（对称性消除）的子节点。
+    // 根节点（max_batch_id < 0）没有“当前批次”，故此步跳过。
+    // ============================================================
+    if (max_batch_id >= 0) {
+        for (int pid : unassigned) {
+            // 条件 (v)：容量可行性 —— a(B_r) + area(pid) ≤ L×W
             bool area_ok = (current_batch_area + part_areas[pid] <= machine_area);
-
-            // 约束 2: 对称性约束 (仅允许索引递增)
+            // 条件 (vi)：对称性 —— 仅允许把下标更大的零件并入当前批次
             bool index_ok = (pid > max_pid_in_current_batch);
 
             if (area_ok && index_ok) {
                 auto S_type2 = node.S;
-                S_type2[max_batch_id].push_back(pid);
+                S_type2[max_batch_id].push_back(pid);   // 并入当前批次 B_r
                 std::string name2 = node.name + "_T2_" + std::to_string(child_index++);
 
                 children.emplace_back(
@@ -212,8 +229,8 @@ ChildGenerationResult generate_children(
                     node.depth + 1
                 );
             }
-            else {
-                if (!area_ok) pruned_count++; // 记录因容量被剪枝的数量
+            else if (!area_ok) {
+                ++pruned_count;   // 记录因容量约束 (v) 被剪掉的 Type II 候选数量
             }
         }
     }
@@ -838,3 +855,223 @@ std::pair<Node, Stats> branch_and_cut(
 
     return std::make_pair(best, stats);
 }
+
+//========================分支过程追踪（教学/调试用）========================
+namespace {
+
+// 把节点的批次构成格式化为可读字符串，例如：[B0:{0,2} | B1:{1}]
+std::string batches_to_string(const Node& node) {
+    if (node.S.empty()) return "[空 / 根节点]";
+
+    std::vector<int> ids;
+    ids.reserve(node.S.size());
+    for (const auto& kv : node.S) ids.push_back(kv.first);
+    std::sort(ids.begin(), ids.end());
+
+    std::string s = "[";
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        std::vector<int> b = node.S.at(ids[i]);
+        std::sort(b.begin(), b.end());
+        s += "B" + std::to_string(ids[i]) + ":{";
+        for (std::size_t j = 0; j < b.size(); ++j) {
+            s += std::to_string(b[j]);
+            if (j + 1 < b.size()) s += ",";
+        }
+        s += "}";
+        if (i + 1 < ids.size()) s += " | ";
+    }
+    s += "]";
+    return s;
+}
+
+// 对比父子节点，判断本次添加是 Type I（开新批次）还是 Type II（并入当前批次），
+// 并指出加入的是哪个零件，返回类似 "Type I: 新批次 B1 装入零件 3" 的描述。
+std::string describe_child(const Node& parent, const Node& child) {
+    std::unordered_set<int> parent_parts;
+    int parent_max_batch = -1;
+    for (const auto& kv : parent.S) {
+        parent_max_batch = std::max(parent_max_batch, kv.first);
+        for (int pid : kv.second) parent_parts.insert(pid);
+    }
+
+    int added_part = -1;
+    int added_batch = -1;
+    for (const auto& kv : child.S) {
+        for (int pid : kv.second) {
+            if (parent_parts.find(pid) == parent_parts.end()) {
+                added_part = pid;
+                added_batch = kv.first;
+            }
+        }
+    }
+
+    if (added_part < 0) return "(无新增零件)";
+    if (added_batch > parent_max_batch) {
+        return "Type I : 开新批次 B" + std::to_string(added_batch) +
+               " 装入零件 " + std::to_string(added_part);
+    }
+    return "Type II: 把零件 " + std::to_string(added_part) +
+           " 并入当前批次 B" + std::to_string(added_batch);
+}
+
+} // namespace
+
+void trace_branch_and_bound(
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& L,
+    const std::vector<double>& W,
+    const std::vector<double>& l,
+    const std::vector<double>& w,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    double UB,
+    std::ostream& os,
+    long long max_nodes
+) {
+    const double machine_area = L[0] * W[0];
+
+    std::vector<double> part_areas(parts.size(), 0.0);
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
+    }
+
+    os << "========================= 分支过程追踪 (Type I / Type II) =========================\n";
+    os << "零件数 n = " << parts.size()
+       << "，平台容量 L×W = " << machine_area
+       << "，初始上界 UB = " << UB << "\n";
+    os << "本追踪与 branch_and_cut 完全一致：最优优先(best-first)出栈 + 自适应DFS，UB 仅在叶子出栈时更新。\n";
+    os << "因此打印顺序就是节点真实的【出栈顺序】，不是简单的树形遍历；用节点名(Root_T1_..._T2_...)可看出父子血缘。\n";
+    os << "缩进按深度，仅为可读性。\n";
+    os << "----------------------------------------------------------------------------------\n";
+
+    // ===== 与 branch_and_cut 一致的计数器 =====
+    long long total_nodes = 0;       // 出栈处理的节点数
+    long long generated_nodes = 0;   // 生成的子节点数
+    long long area_pruned_nodes = 0; // 因容量(v)被剪的 Type II 候选数
+    long long LB_pruned_nodes = 0;   // 因下界被剪的节点数
+    long long leaf_nodes = 0;        // 到达的叶子数
+    long long updated_solutions = 0; // UB 被刷新的次数
+    std::map<int, int> pruned_nodes_per_depth; // 每个深度被剪枝的节点数
+
+    double best_ub = UB;
+
+    auto count_assigned = [&](const Node& nd) -> std::size_t {
+        std::size_t c = 0;
+        for (const auto& kv : nd.S) c += kv.second.size();
+        return c;
+    };
+
+    Node root({}, 0.0, "Root", 0.0, 0.0, 0);
+    update_node_metrics(root, ST, VT, UT, h, v, D);
+    root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
+
+    // ===== 与 branch_and_cut 完全相同的栈与出栈策略 =====
+    std::deque<Node> stack;
+    stack.push_back(root);
+
+    const int max_capa = 5000;   // 与正式算法一致
+    const int min_capa = 2000;   // 与正式算法一致
+    bool use_best_first = true;
+
+    while (!stack.empty()) {
+        if (total_nodes >= max_nodes) {
+            os << "（已达到 max_nodes=" << max_nodes << " 上限，提前停止；如需完整统计请调大该上限）\n";
+            break;
+        }
+
+        // 动态选择出栈策略（与 branch_and_cut 一致）
+        if (stack.size() > static_cast<std::size_t>(max_capa)) use_best_first = false;
+        else if (stack.size() < static_cast<std::size_t>(min_capa)) use_best_first = true;
+
+        Node cur;
+        if (use_best_first) {
+            auto best_it = std::min_element(stack.begin(), stack.end(),
+                [](const Node& a, const Node& b) { return a.LB < b.LB; });
+            cur = *best_it;
+            stack.erase(best_it);
+        }
+        else {
+            cur = stack.back();
+            stack.pop_back();
+        }
+
+        ++total_nodes;
+
+        const std::string indent(static_cast<std::size_t>(cur.depth) * 2, ' ');
+        os << indent << "* [出栈#" << total_nodes << "] 节点[" << cur.name << "] 深度=" << cur.depth << " "
+           << batches_to_string(cur)
+           << "  LB=" << cur.LB
+           << "  C=" << cur.completion_time
+           << "  TT=" << cur.total_tardiness
+           << "  | 当前UB=" << best_ub << " 栈内剩余=" << stack.size() << "\n";
+
+        // 1) 出栈时下界剪枝（注意：入栈后 UB 可能已下降，这里会再次判断）
+        if (cur.LB >= best_ub) {
+            ++LB_pruned_nodes;
+            ++pruned_nodes_per_depth[cur.depth];
+            os << indent << "  -> 出栈时被下界剪枝 (LB=" << cur.LB << " >= UB=" << best_ub << ")\n";
+            continue;
+        }
+
+        // 2) 叶子节点：完整调度。UB 仅在此处（叶子出栈）更新
+        if (count_assigned(cur) == parts.size()) {
+            ++leaf_nodes;
+            os << indent << "  -> 叶子节点：完整调度，总延误 = " << cur.total_tardiness;
+            if (cur.LB < best_ub) {
+                best_ub = cur.LB;
+                ++updated_solutions;
+                os << "  (刷新 UB -> " << best_ub << ")";
+            }
+            os << "\n";
+            continue;
+        }
+
+        // 3) 展开子节点（与 branch_and_cut 调用同一套 generate_children / 下界）
+        ChildGenerationResult res = generate_children(cur, parts, machine_area, part_areas);
+        generated_nodes += static_cast<long long>(res.children.size());
+        area_pruned_nodes += res.pruned_count;
+
+        os << indent << "  生成 " << res.children.size() << " 个子节点"
+           << "（另有 " << res.pruned_count << " 个 Type II 候选因容量约束(v)被剪）:\n";
+
+        for (Node& child : res.children) {
+            update_node_metrics(child, ST, VT, UT, h, v, D);
+            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+
+            os << indent << "    - " << describe_child(cur, child)
+               << "  => " << batches_to_string(child)
+               << "  LB=" << child.LB;
+
+            // 与 branch_and_cut 一致：child.LB < UB 才入栈，否则在“生成阶段”即被剪
+            if (child.LB < best_ub) {
+                os << "  [入栈待展开]\n";
+                stack.push_back(std::move(child));
+            }
+            else {
+                ++LB_pruned_nodes;
+                ++pruned_nodes_per_depth[child.depth];
+                os << "  [生成时即被下界剪枝: LB>=UB]\n";
+            }
+        }
+    }
+
+    os << "----------------------------------------------------------------------------------\n";
+    os << "追踪结束（统计口径与 branch_and_cut 完全一致）：\n";
+    os << "  出栈处理节点数 total_nodes = " << total_nodes << "\n";
+    os << "  生成子节点数 generated_nodes = " << generated_nodes << "\n";
+    os << "  叶子节点数 leaf_nodes = " << leaf_nodes << "\n";
+    os << "  UB 刷新次数 updated_solutions = " << updated_solutions << "\n";
+    os << "  容量(v)剪枝 area_pruned_nodes = " << area_pruned_nodes << "\n";
+    os << "  下界剪枝 LB_pruned_nodes = " << LB_pruned_nodes << "\n";
+    os << "  各深度被剪枝节点数 (Depth : PrunedNodes):\n";
+    for (const auto& kv : pruned_nodes_per_depth) {
+        os << "    深度 " << kv.first << " : " << kv.second << "\n";
+    }
+    os << "  最终 UB = " << best_ub << "\n";
+    os << "==================================================================================\n";
+}
+
