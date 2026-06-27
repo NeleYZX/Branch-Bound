@@ -118,6 +118,21 @@ double compute_unassigned_lower_bound(
     const std::vector<double>& v
 );
 
+double compute_positional_lower_bound(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& L,
+    const std::vector<double>& W,
+    const std::vector<double>& l,
+    const std::vector<double>& w,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+);
+
 //==========================Branch and Bound========================
 struct FirstLevelNodeInfo {
     std::string name;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <limits>
+#include <cmath>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -323,6 +324,83 @@ double compute_unassigned_lower_bound(
     return node.total_tardiness + unassigned_tardiness;
 }
 
+// 位置下界 LBpos：仅用于 Type I 子节点。Type II 仍保留原并行下界。
+double compute_positional_lower_bound(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& L,
+    const std::vector<double>& W,
+    const std::vector<double>& l,
+    const std::vector<double>& w,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+) {
+    std::unordered_set<int> assigned;
+    for (const auto& kv : node.S) {
+        for (int pid : kv.second) {
+            assigned.insert(pid);
+        }
+    }
+
+    std::vector<double> areas;
+    std::vector<double> heights;
+    std::vector<double> volumes;
+    std::vector<double> due_dates;
+
+    for (int p : parts) {
+        if (assigned.find(p) == assigned.end()) {
+            areas.push_back(l[p] * w[p]);
+            heights.push_back(h[p]);
+            volumes.push_back(v[p]);
+            due_dates.push_back(D[p]);
+        }
+    }
+
+    const std::size_t m = due_dates.size();
+    if (m == 0) {
+        return node.total_tardiness;
+    }
+
+    std::sort(areas.begin(), areas.end());
+    std::sort(heights.begin(), heights.end());
+    std::sort(volumes.begin(), volumes.end());
+    std::sort(due_dates.begin(), due_dates.end());
+
+    const double machine_area = L[0] * W[0];
+    const double eps = 1e-9;
+    double area_prefix = 0.0;
+    double volume_prefix = 0.0;
+    double positional_tardiness = 0.0;
+
+    for (std::size_t k = 1; k <= m; ++k) {
+        area_prefix += areas[k - 1];
+        volume_prefix += volumes[k - 1];
+
+        int beta = static_cast<int>(std::ceil((area_prefix - eps) / machine_area));
+        beta = std::max(1, std::min(beta, static_cast<int>(k)));
+
+        double height_bound = 0.0;
+        for (int r = 0; r < beta - 1; ++r) {
+            height_bound += heights[r];
+        }
+        height_bound += heights[k - 1];
+
+        const double completion_lb =
+            node.completion_time +
+            beta * ST[0] +
+            UT[0] * height_bound +
+            VT[0] * volume_prefix;
+
+        positional_tardiness += std::max(0.0, completion_lb - due_dates[k - 1]);
+    }
+
+    return node.total_tardiness + positional_tardiness;
+}
+
 //不使用DP算法的串行计算
 double compute_unassigned_lower_bound3(
     const Node& node,
@@ -436,6 +514,20 @@ double compute_unassigned_lower_bound2(
 
     // 返回当前延迟 + 估计的未分配延迟下界
     return node.total_tardiness + min_tardiness;
+}
+
+static bool is_type1_child_for_lower_bound(const Node& parent, const Node& child) {
+    int parent_max_batch = -1;
+    for (const auto& kv : parent.S) {
+        parent_max_batch = std::max(parent_max_batch, kv.first);
+    }
+
+    int child_max_batch = -1;
+    for (const auto& kv : child.S) {
+        child_max_batch = std::max(child_max_batch, kv.first);
+    }
+
+    return child_max_batch > parent_max_batch;
 }
 
 
@@ -685,120 +777,12 @@ std::pair<Node, Stats> branch_and_cut(
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
              //child.LB = compute_unassigned_lower_bound3(child, parts, D, ST, VT, UT, h, v);
                 //-------------------------------2.并行下界----------------------------------------------------
-            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-            //-------------------------------3.串并行比较-----------------------------------------------
-        //double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-        //double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
-        //if (LB_serial <= LB_parallel) {
-        //   child.LB = LB_parallel;
-        //}
-        //else {
-        //    child.LB = LB_serial;
-        //}
-
-        //-----------------------------------4. delta下界控制-------------------------------------
-
-        //// 1. 先计算并行下界 (Cheap)
-        //double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-
-        //// 2. 如果并行下界已经超过UB，直接剪枝
-        //if (lb_parallel >= UB) {
-        //    ++stats.LB_pruned_nodes;
-        //    ++stats.pruned_nodes_per_depth[child.depth];
-        //    continue;
-        //}
-
-        //child.LB = lb_parallel; // 暂时赋值为并行LB
-
-        //// 3. 计算 Delta 判断是否需要启用精确下界
-        //// 确保 UB 不为0防止除零风险 (虽然 UB=0 时前面 lb>=UB 大概率已剪枝)
-        //if (UB > 1e-9) {
-        //    double delta = (UB - lb_parallel) / UB;
-
-        //    // 4. 如果差距 <= 5%，启用精确下界 (Expensive Serial LB via DP)
-        //    if (delta <= 0.5) {
-
-        //        ++stats.delta_trigger_count;
-        //        // 记录Delta启用次数
-        //        double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
-
-        //        // 取两者的最大值作为最终 LB (理论上 Serial >= Parallel)
-        //        if (lb_serial > lb_parallel) {
-        //            child.LB = lb_serial;
-        //        }
-        //        else {
-        //            ++stats.serial_missing_count;
-        //        }
-
-        //        // 5. 再次剪枝判断
-        //        if (child.LB >= UB) {
-        //            ++stats.serial_pruning_count;
-
-        //            ++stats.LB_pruned_nodes;
-        //            ++stats.pruned_nodes_per_depth[child.depth];
-        //            continue;
-        //            }
-        //        }
-        //    }
-
-        //----------------------------------------5. delta下界控制与未分配比例策略-----------------------------
-
-        //// 1. 先计算并行下界 (Cheap / Fast LB)
-        //double lb_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
-
-        //// 2. 如果并行下界已经超过UB，直接剪枝
-        //if (lb_parallel >= UB) {
-        //    ++stats.LB_pruned_nodes;
-        //    ++stats.pruned_nodes_per_depth[child.depth];
-        //    continue;
-        //}
-
-        //child.LB = lb_parallel; // 暂时默认赋值为并行LB
-
-        //// 3. 开始多级判断
-        //if (UB > 1e-9) {
-        //    double delta = (UB - lb_parallel) / UB;
-
-        //    // 【优化点】第一层过滤：先看 Delta 是否足够小 (<= 10%)
-        //    // 如果 delta 很大（说明当前解离 UB 很远），直接跳过后续所有计算，保留 parallel LB 即可
-        //    if (delta <= 0.1) {
-
-        //        // 【优化点】第二层过滤：只有通过了 Delta 检查，才计算未分配零件比例
-        //        std::size_t child_assigned_count = 0;
-        //        for (const auto& kv : child.S) {
-        //            child_assigned_count += kv.second.size();
-        //        }
-
-        //        int child_unassigned_count = static_cast<int>(parts.size() - child_assigned_count);
-        //        double unassigned_ratio = static_cast<double>(child_unassigned_count) / parts.size();
-
-        //        // 【优化点】第三层过滤：未分配零件 > 60% 才启用昂贵的 DP 下界
-        //        if ( unassigned_ratio  > 0.6) {
-
-        //            ++stats.delta_trigger_count; // 记录昂贵下界的触发次数
-
-        //            // 启用精确下界 (Expensive Serial LB via DP)
-        //            double lb_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
-
-        //            // 取两者的最大值作为最终 LB
-        //            if (lb_serial > lb_parallel) {
-        //                child.LB = lb_serial;
-        //            }
-        //            else {
-        //                ++stats.serial_missing_count;
-        //            }
-
-        //            // 再次剪枝判断（因为 LB 变大了，可能现在能剪掉了）
-        //            if (child.LB >= UB) {
-        //                ++stats.serial_pruning_count;
-        //                ++stats.LB_pruned_nodes;
-        //                ++stats.pruned_nodes_per_depth[child.depth];
-        //                continue;
-        //            }
-        //        }
-        //    }
-        //}
-
+            if (is_type1_child_for_lower_bound(cur, child)) {
+                child.LB = compute_positional_lower_bound(child, parts, D, ST, VT, UT, L, W, l, w, h, v);//针对type1
+            }
+            else {
+                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);//针对type2
+            }
 
 
         // ----------------- [修改开始] -----------------
@@ -834,9 +818,6 @@ std::pair<Node, Stats> branch_and_cut(
                 stats.first_level_node_lbs.emplace_back(child.name, child.LB);
             }
             // ----------------- [修改结束] -----------------
-
-
-
 
             if (child.LB < UB) {
                 stack.push_back(std::move(child));
@@ -1040,7 +1021,12 @@ void trace_branch_and_bound(
 
         for (Node& child : res.children) {
             update_node_metrics(child, ST, VT, UT, h, v, D);
-            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            if (is_type1_child_for_lower_bound(cur, child)) {
+                child.LB = compute_positional_lower_bound(child, parts, D, ST, VT, UT, L, W, l, w, h, v);
+            }
+            else {
+                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            }
 
             os << indent << "    - " << describe_child(cur, child)
                << "  => " << batches_to_string(child)
