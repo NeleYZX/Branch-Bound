@@ -81,7 +81,8 @@ std::pair<BatchMap, double> generateInitialSolution(
 
 //===========================Node 定义===============================
 Node::Node()
-    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"), depth(0) {
+    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"), depth(0),
+      generation_type(0), added_part(-1) {
 }
 
 Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
@@ -89,9 +90,12 @@ Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     const std::string& name_,
     double completion_time_,
     double total_tardiness_,
-    int depth_)
+    int depth_,
+    int generation_type_,
+    int added_part_)
     : S(S_), LB(LB_), name(name_),
-    completion_time(completion_time_), total_tardiness(total_tardiness_), depth(depth_) {
+    completion_time(completion_time_), total_tardiness(total_tardiness_), depth(depth_),
+    generation_type(generation_type_), added_part(added_part_) {
 }
 
 bool Node::operator==(const Node& other) const {
@@ -198,9 +202,11 @@ ChildGenerationResult generate_children(
             std::move(S_type1),
             0.0,                 // LB 由调用方稍后计算
             name1,
-            0.0,                 // completion_time 由 update_node_metrics 统一重算
+            0.0,                 // completion_time 由调用方稍后计算
             0.0,                 // total_tardiness 同上
-            node.depth + 1
+            node.depth + 1,
+            1,
+            pid
         );
     }
 
@@ -227,7 +233,9 @@ ChildGenerationResult generate_children(
                     name2,
                     0.0,
                     0.0,
-                    node.depth + 1
+                    node.depth + 1,
+                    2,
+                    pid
                 );
             }
             else if (!area_ok) {
@@ -516,18 +524,26 @@ double compute_unassigned_lower_bound2(
     return node.total_tardiness + min_tardiness;
 }
 
-static bool is_type1_child_for_lower_bound(const Node& parent, const Node& child) {
-    int parent_max_batch = -1;
-    for (const auto& kv : parent.S) {
-        parent_max_batch = std::max(parent_max_batch, kv.first);
+static void update_type1_metrics_incrementally(
+    const Node& parent,
+    Node& child,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D
+) {
+    const int added_part = child.added_part;
+    if (added_part < 0) {
+        update_node_metrics(child, ST, VT, UT, h, v, D);
+        return;
     }
 
-    int child_max_batch = -1;
-    for (const auto& kv : child.S) {
-        child_max_batch = std::max(child_max_batch, kv.first);
-    }
-
-    return child_max_batch > parent_max_batch;
+    const double processing_time = ST[0] + VT[0] * v[added_part] + UT[0] * h[added_part];
+    child.completion_time = parent.completion_time + processing_time;
+    child.total_tardiness =
+        parent.total_tardiness + std::max(0.0, child.completion_time - D[added_part]);
 }
 
 
@@ -720,8 +736,13 @@ std::pair<Node, Stats> branch_and_cut(
         stats.area_pruned_nodes += pruned;
 
         for (auto& child : kids) {
-            // [修改]：移除旧的两次增量计算，统一调用 update_node_metrics 重算完成时间和总延迟
-            update_node_metrics(child, ST, VT, UT, h, v, D);
+            const bool is_type1_child = (child.generation_type == 1);
+            if (is_type1_child) {
+                update_type1_metrics_incrementally(cur, child, ST, VT, UT, h, v, D);
+            }
+            else {
+                update_node_metrics(child, ST, VT, UT, h, v, D);
+            }
 
             // ====================== 支配规则检查开始 ======================
 
@@ -776,8 +797,8 @@ std::pair<Node, Stats> branch_and_cut(
                 //-------------------------------1.串行下界------
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
              //child.LB = compute_unassigned_lower_bound3(child, parts, D, ST, VT, UT, h, v);
-                //-------------------------------2.并行下界----------------------------------------------------
-            if (is_type1_child_for_lower_bound(cur, child)) {
+                //-------------------------------2.Type1 增量 metrics + LBpos；Type2 全量 metrics + 原下界-------
+            if (is_type1_child) {
                 child.LB = compute_positional_lower_bound(child, parts, D, ST, VT, UT, L, W, l, w, h, v);//针对type1
             }
             else {
@@ -865,33 +886,35 @@ std::string batches_to_string(const Node& node) {
     return s;
 }
 
-// 对比父子节点，判断本次添加是 Type I（开新批次）还是 Type II（并入当前批次），
-// 并指出加入的是哪个零件，返回类似 "Type I: 新批次 B1 装入零件 3" 的描述。
+// 使用子节点生成时记录的类型与新增零件，避免在 trace 中再次扫描父子差异。
 std::string describe_child(const Node& parent, const Node& child) {
-    std::unordered_set<int> parent_parts;
     int parent_max_batch = -1;
     for (const auto& kv : parent.S) {
         parent_max_batch = std::max(parent_max_batch, kv.first);
-        for (int pid : kv.second) parent_parts.insert(pid);
     }
 
-    int added_part = -1;
     int added_batch = -1;
-    for (const auto& kv : child.S) {
-        for (int pid : kv.second) {
-            if (parent_parts.find(pid) == parent_parts.end()) {
-                added_part = pid;
+    if (child.generation_type == 1) {
+        added_batch = parent_max_batch + 1;
+    }
+    else if (child.generation_type == 2) {
+        added_batch = parent_max_batch;
+    }
+    else if (child.added_part >= 0) {
+        for (const auto& kv : child.S) {
+            if (std::find(kv.second.begin(), kv.second.end(), child.added_part) != kv.second.end()) {
                 added_batch = kv.first;
+                break;
             }
         }
     }
 
-    if (added_part < 0) return "(无新增零件)";
-    if (added_batch > parent_max_batch) {
+    if (child.added_part < 0) return "(无新增零件)";
+    if (child.generation_type == 1 || added_batch > parent_max_batch) {
         return "Type I : 开新批次 B" + std::to_string(added_batch) +
-               " 装入零件 " + std::to_string(added_part);
+               " 装入零件 " + std::to_string(child.added_part);
     }
-    return "Type II: 把零件 " + std::to_string(added_part) +
+    return "Type II: 把零件 " + std::to_string(child.added_part) +
            " 并入当前批次 B" + std::to_string(added_batch);
 }
 
@@ -1020,11 +1043,13 @@ void trace_branch_and_bound(
            << "（另有 " << res.pruned_count << " 个 Type II 候选因容量约束(v)被剪）:\n";
 
         for (Node& child : res.children) {
-            update_node_metrics(child, ST, VT, UT, h, v, D);
-            if (is_type1_child_for_lower_bound(cur, child)) {
+            const bool is_type1_child = (child.generation_type == 1);
+            if (is_type1_child) {
+                update_type1_metrics_incrementally(cur, child, ST, VT, UT, h, v, D);
                 child.LB = compute_positional_lower_bound(child, parts, D, ST, VT, UT, L, W, l, w, h, v);
             }
             else {
+                update_node_metrics(child, ST, VT, UT, h, v, D);
                 child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
             }
 
