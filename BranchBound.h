@@ -23,6 +23,8 @@ public:
     double total_tardiness;     // 当前已产生总延迟
     std::string name;     // 节点名称
     int depth;
+    int generation_type;  // 生成类型：0=根/未知，1=Type I，2=Type II
+    int added_part;       // 从父节点新加入的零件编号，用于 Type I 增量计算
 
     Node();
     Node(const std::unordered_map<int, std::vector<int>>& S_,

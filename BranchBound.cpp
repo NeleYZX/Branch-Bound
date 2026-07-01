@@ -80,7 +80,8 @@ std::pair<BatchMap, double> generateInitialSolution(
 
 //===========================Node 定义===============================
 Node::Node()
-    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"), depth(0) {
+    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"), depth(0),
+    generation_type(0), added_part(-1) {
 }
 
 Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
@@ -89,8 +90,9 @@ Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     double completion_time_,
     double total_tardiness_,
     int depth_)
-    : S(S_), LB(LB_), name(name_),
-    completion_time(completion_time_), total_tardiness(total_tardiness_), depth(depth_) {
+    : S(S_), LB(LB_), completion_time(completion_time_), total_tardiness(total_tardiness_),
+    name(name_), depth(depth_),
+    generation_type(0), added_part(-1) {
 }
 
 bool Node::operator==(const Node& other) const {
@@ -201,6 +203,8 @@ ChildGenerationResult generate_children(
             0.0,                 // total_tardiness 同上
             node.depth + 1
         );
+        children.back().generation_type = 1;
+        children.back().added_part = pid;
     }
 
     // ============================================================
@@ -228,6 +232,8 @@ ChildGenerationResult generate_children(
                     0.0,
                     node.depth + 1
                 );
+                children.back().generation_type = 2;
+                children.back().added_part = pid;
             }
             else if (!area_ok) {
                 ++pruned_count;   // 记录因容量约束 (v) 被剪掉的 Type II 候选数量
@@ -240,6 +246,26 @@ ChildGenerationResult generate_children(
 
 // [删除]：移除了原有的 compute_completion_times 函数
 // [删除]：移除了原有的 compute_assigned_tardiness 函数
+
+//====================== Type I 子节点增量更新 =============================
+static void update_type1_child_metrics(
+    const Node& parent,
+    Node& child,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D
+) {
+    int pid = child.added_part;
+    double PT = ST[0] + VT[0] * v[pid] + UT[0] * h[pid];
+    double current_time = parent.completion_time + PT;
+
+    // Type I 开启的新批次只含新增零件，因此可直接继承父节点 C/TT 并增量加入该零件延误。
+    child.completion_time = current_time;
+    child.total_tardiness = parent.total_tardiness + std::max(0.0, current_time - D[pid]);
+}
 
 //====================== [新增] 更新节点的全局时间与延迟状态 =============================
 void update_node_metrics(
@@ -628,8 +654,14 @@ std::pair<Node, Stats> branch_and_cut(
         stats.area_pruned_nodes += pruned;
 
         for (auto& child : kids) {
-            // [修改]：移除旧的两次增量计算，统一调用 update_node_metrics 重算完成时间和总延迟
-            update_node_metrics(child, ST, VT, UT, h, v, D);
+            // Type I 只新增一个单零件批次，直接继承父节点 C/TT 做增量更新；
+            // Type II 会改变当前最后批次，保持原来的全量重算用于本组实验对照。
+            if (child.generation_type == 1) {
+                update_type1_child_metrics(cur, child, ST, VT, UT, h, v, D);
+            }
+            else {
+                update_node_metrics(child, ST, VT, UT, h, v, D);
+            }
 
             // ====================== 支配规则检查开始 ======================
 
@@ -1039,7 +1071,12 @@ void trace_branch_and_bound(
            << "（另有 " << res.pruned_count << " 个 Type II 候选因容量约束(v)被剪）:\n";
 
         for (Node& child : res.children) {
-            update_node_metrics(child, ST, VT, UT, h, v, D);
+            if (child.generation_type == 1) {
+                update_type1_child_metrics(cur, child, ST, VT, UT, h, v, D);
+            }
+            else {
+                update_node_metrics(child, ST, VT, UT, h, v, D);
+            }
             child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
 
             os << indent << "    - " << describe_child(cur, child)
