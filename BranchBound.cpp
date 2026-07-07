@@ -323,30 +323,78 @@ double compute_unassigned_lower_bound(
     const std::vector<double>& VT,
     const std::vector<double>& UT,
     const std::vector<double>& h,
-    const std::vector<double>& v
+    const std::vector<double>& v,
+    double machine_area,
+    const std::vector<double>& part_areas
 ) {
-    // 找出已分配的零件
     std::unordered_set<int> assigned;
-    for (const auto& [_, part_ids] : node.S) {
-        for (int pid : part_ids) {
-            assigned.insert(pid);
+    int max_batch_id = -1;
+    for (const auto& kv : node.S) {
+        max_batch_id = std::max(max_batch_id, kv.first);
+        for (int pid : kv.second) assigned.insert(pid);
+    }
+
+    double closed_completion_time = 0.0;
+    double closed_total_tardiness = 0.0;
+    double last_batch_completion_time = 0.0;
+    double last_batch_tardiness = 0.0;
+    double last_batch_volume = 0.0;
+    double last_batch_height = 0.0;
+    static_cast<void>(machine_area);
+    static_cast<void>(part_areas);
+
+    for (int bid = 0; bid <= max_batch_id; ++bid) {
+        auto it = node.S.find(bid);
+        if (it == node.S.end()) continue;
+
+        double batch_volume = 0.0;
+        double batch_height = 0.0;
+
+        for (int pid : it->second) {
+            batch_volume += v[pid];
+            batch_height = std::max(batch_height, h[pid]);
+        }
+
+        double batch_processing_time = ST[0] + VT[0] * batch_volume + UT[0] * batch_height;
+        double batch_completion_time = closed_completion_time + batch_processing_time;
+        double batch_tardiness = 0.0;
+        for (int pid : it->second) {
+            batch_tardiness += std::max(0.0, batch_completion_time - D[pid]);
+        }
+
+        if (bid < max_batch_id) {
+            closed_completion_time = batch_completion_time;
+            closed_total_tardiness += batch_tardiness;
+        }
+        else {
+            last_batch_completion_time = batch_completion_time;
+            last_batch_tardiness = batch_tardiness;
+            last_batch_volume = batch_volume;
+            last_batch_height = batch_height;
         }
     }
 
-    // 初始化未分配部分的延迟估计
     double unassigned_tardiness = 0.0;
 
     for (int p : parts) {
         if (assigned.find(p) == assigned.end()) {
-            // 对每个未分配零件，估算加工时间并独立批次处理
-            double pt = ST[0] + VT[0] * v[p] + UT[0] * h[p];
-            double c = node.completion_time + pt;  // 假设从当前时间并行开始
-            unassigned_tardiness += std::max(0.0, c - D[p]);
+            double single_processing_time = ST[0] + VT[0] * v[p] + UT[0] * h[p];
+            double new_batch_completion_time = last_batch_completion_time + single_processing_time;
+            double optimistic_completion_time = new_batch_completion_time;
+
+            if (max_batch_id >= 0) {
+                double joined_volume = last_batch_volume + v[p];
+                double joined_height = std::max(last_batch_height, h[p]);
+                double joined_processing_time = ST[0] + VT[0] * joined_volume + UT[0] * joined_height;
+                double joined_completion_time = closed_completion_time + joined_processing_time;
+                optimistic_completion_time = std::min(optimistic_completion_time, joined_completion_time);
+            }
+
+            unassigned_tardiness += std::max(0.0, optimistic_completion_time - D[p]);
         }
     }
 
-    // 返回当前延迟 + 未来估计
-    return node.total_tardiness + unassigned_tardiness;
+    return closed_total_tardiness + last_batch_tardiness + unassigned_tardiness;
 }
 
 //不使用DP算法的串行计算
@@ -507,6 +555,11 @@ std::pair<Node, Stats> branch_and_cut(
         individual_processing_times[i] = ST[0] + VT[0] * v[current_part_id] + UT[0] * h[current_part_id];
     }
 
+    std::vector<double> part_areas(parts.size(), 0.0);
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
+    }
+
     // ========= 新增：根据已分配/未分配数量选择 LB 的小函数 =========
     auto compute_node_LB = [&](const Node& nd) -> double {
         // 统计已分配零件数量
@@ -522,18 +575,13 @@ std::pair<Node, Stats> branch_and_cut(
 
         if (unassigned_cnt <= MAX_UNASSIGNED_FOR_DP) {
             // 未分配数量很少，用便宜的简单下界v
-            return compute_unassigned_lower_bound(nd, parts, D, ST, VT, UT, h, v);
+            return compute_unassigned_lower_bound(nd, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
         }
         else {
             // 未分配数量很多，用更精确的 DP 下界
             return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v, individual_processing_times);
         }
         };
-
-    std::vector<double> part_areas(parts.size(), 0.0);
-    for (std::size_t i = 0; i < parts.size(); ++i) {
-        part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
-    }
 
     auto all_assigned = [&](const Node& nd) -> bool {
         std::size_t cnt = 0;
@@ -545,7 +593,7 @@ std::pair<Node, Stats> branch_and_cut(
 
     Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
-    root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
+    root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
 
     std::deque<Node> stack;
     stack.push_back(root);
@@ -717,7 +765,7 @@ std::pair<Node, Stats> branch_and_cut(
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
              //child.LB = compute_unassigned_lower_bound3(child, parts, D, ST, VT, UT, h, v);
                 //-------------------------------2.并行下界----------------------------------------------------
-            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
             //-------------------------------3.串并行比较-----------------------------------------------
         //double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
         //double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
@@ -999,7 +1047,7 @@ void trace_branch_and_bound(
 
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
     update_node_metrics(root, ST, VT, UT, h, v, D);
-    root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
+    root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
 
     // ===== 与 branch_and_cut 完全相同的栈与出栈策略 =====
     std::deque<Node> stack;
@@ -1077,7 +1125,7 @@ void trace_branch_and_bound(
             else {
                 update_node_metrics(child, ST, VT, UT, h, v, D);
             }
-            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
+            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
 
             os << indent << "    - " << describe_child(cur, child)
                << "  => " << batches_to_string(child)

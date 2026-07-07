@@ -117,7 +117,9 @@ double compute_unassigned_lower_bound(
     const std::vector<double>& VT,
     const std::vector<double>& UT,
     const std::vector<double>& h,
-    const std::vector<double>& v
+    const std::vector<double>& v,
+    double machine_area,
+    const std::vector<double>& part_areas
 );
 
 //==========================Branch and Bound========================
