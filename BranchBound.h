@@ -12,6 +12,7 @@
 #include <ostream>
 #include <fstream>
 #include <filesystem>
+#include <cstdint>
 
 //===================节点定义=======================
 class Node {
@@ -25,6 +26,10 @@ public:
     int depth;
     int generation_type;  // 生成类型：0=根/未知，1=Type I，2=Type II
     int added_part;       // 从父节点新加入的零件编号，用于 Type I 增量计算
+    std::uint64_t assigned_mask;    // 已分配零件集合
+    std::uint64_t last_batch_mask;  // 当前最后批次零件集合
+    double closed_completion_time;  // 除最后批次外的完成时间
+    double closed_total_tardiness;  // 除最后批次外的总延误
 
     Node();
     Node(const std::unordered_map<int, std::vector<int>>& S_,
@@ -138,6 +143,7 @@ struct Stats {
     int area_pruned_nodes = 0;
     int LB_pruned_nodes = 0;
     int U_pruned_nodes = 0;
+    int dominance_pruned_nodes = 0;
     int leaf_nodes = 0;
     std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>

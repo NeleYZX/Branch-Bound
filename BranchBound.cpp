@@ -9,6 +9,8 @@
 #include <string>
 #include <functional>
 #include <iomanip>
+#include <cstdint>
+#include <queue>
 #include "DynamicProgramming.h"
 
 //=========================生成初始解（无任何调试输出）=========================
@@ -81,7 +83,8 @@ std::pair<BatchMap, double> generateInitialSolution(
 //===========================Node 定义===============================
 Node::Node()
     : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"), depth(0),
-    generation_type(0), added_part(-1) {
+    generation_type(0), added_part(-1), assigned_mask(0), last_batch_mask(0),
+    closed_completion_time(0.0), closed_total_tardiness(0.0) {
 }
 
 Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
@@ -92,7 +95,8 @@ Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     int depth_)
     : S(S_), LB(LB_), completion_time(completion_time_), total_tardiness(total_tardiness_),
     name(name_), depth(depth_),
-    generation_type(0), added_part(-1) {
+    generation_type(0), added_part(-1), assigned_mask(0), last_batch_mask(0),
+    closed_completion_time(0.0), closed_total_tardiness(0.0) {
 }
 
 bool Node::operator==(const Node& other) const {
@@ -128,6 +132,38 @@ std::ostream& operator<<(std::ostream& os, const Node& node) {
     }
     os << "  }";
     return os;
+}
+
+static std::uint64_t part_bit(int pid) {
+    return std::uint64_t{1} << static_cast<unsigned>(pid);
+}
+
+static bool dominates_metric(const StateMetric& lhs, const StateMetric& rhs, double eps) {
+    bool no_worse = lhs.tt <= rhs.tt + eps && lhs.c <= rhs.c + eps;
+    bool strictly_better = lhs.tt + eps < rhs.tt || lhs.c + eps < rhs.c;
+    return no_worse && strictly_better;
+}
+
+struct ActiveKey {
+    std::uint64_t assigned_mask;
+    std::uint64_t last_batch_mask;
+
+    bool operator==(const ActiveKey& other) const {
+        return assigned_mask == other.assigned_mask &&
+            last_batch_mask == other.last_batch_mask;
+    }
+};
+
+struct ActiveKeyHash {
+    std::size_t operator()(const ActiveKey& key) const {
+        std::size_t h1 = std::hash<std::uint64_t>{}(key.assigned_mask);
+        std::size_t h2 = std::hash<std::uint64_t>{}(key.last_batch_mask);
+        return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
+    }
+};
+
+static ActiveKey make_active_key(const Node& node) {
+    return { node.assigned_mask, node.last_batch_mask };
 }
 
 //=======================子节点生成（Type I & Type II）========================
@@ -279,6 +315,10 @@ void update_node_metrics(
 ) {
     double current_time = 0.0;
     double total_tardiness = 0.0;
+    double closed_completion_time = 0.0;
+    double closed_total_tardiness = 0.0;
+    std::uint64_t assigned_mask = 0;
+    std::uint64_t last_batch_mask = 0;
 
     int max_batch_id = -1;
     for (const auto& kv : node.S) {
@@ -291,11 +331,17 @@ void update_node_metrics(
 
         const auto& batch = node.S.at(i);
         double vol = 0.0, mh = 0.0;
+        std::uint64_t batch_mask = 0;
 
         // 提取当前批次的总体积和最大高度
         for (int pid : batch) {
             vol += v[pid];
             mh = std::max(mh, h[pid]);
+            batch_mask |= part_bit(pid);
+        }
+        assigned_mask |= batch_mask;
+        if (i == max_batch_id) {
+            last_batch_mask = batch_mask;
         }
 
         // 计算当前批次的加工时间 (PT = 准备时间 + 体积相关时间 + 高度相关时间)
@@ -303,14 +349,24 @@ void update_node_metrics(
         current_time += PT;
 
         // 累加当前批次所有零件的延迟
+        double batch_tardiness = 0.0;
         for (int pid : batch) {
-            total_tardiness += std::max(0.0, current_time - D[pid]);
+            batch_tardiness += std::max(0.0, current_time - D[pid]);
+        }
+        total_tardiness += batch_tardiness;
+        if (i < max_batch_id) {
+            closed_completion_time = current_time;
+            closed_total_tardiness += batch_tardiness;
         }
     }
 
     // 固化节点的最终状态
     node.completion_time = current_time;
     node.total_tardiness = total_tardiness;
+    node.closed_completion_time = closed_completion_time;
+    node.closed_total_tardiness = closed_total_tardiness;
+    node.assigned_mask = assigned_mask;
+    node.last_batch_mask = last_batch_mask;
 }
 
 //=======================未分配零件总延迟下界估计====================
@@ -334,43 +390,26 @@ double compute_unassigned_lower_bound(
         for (int pid : kv.second) assigned.insert(pid);
     }
 
-    double closed_completion_time = 0.0;
-    double closed_total_tardiness = 0.0;
-    double last_batch_completion_time = 0.0;
+    double closed_completion_time = node.closed_completion_time;
+    double closed_total_tardiness = node.closed_total_tardiness;
+    double last_batch_completion_time = closed_completion_time;
     double last_batch_tardiness = 0.0;
     double last_batch_volume = 0.0;
     double last_batch_height = 0.0;
     static_cast<void>(machine_area);
     static_cast<void>(part_areas);
 
-    for (int bid = 0; bid <= max_batch_id; ++bid) {
-        auto it = node.S.find(bid);
-        if (it == node.S.end()) continue;
-
-        double batch_volume = 0.0;
-        double batch_height = 0.0;
-
-        for (int pid : it->second) {
-            batch_volume += v[pid];
-            batch_height = std::max(batch_height, h[pid]);
+    if (max_batch_id >= 0) {
+        const auto& last_batch = node.S.at(max_batch_id);
+        for (int pid : last_batch) {
+            last_batch_volume += v[pid];
+            last_batch_height = std::max(last_batch_height, h[pid]);
         }
 
-        double batch_processing_time = ST[0] + VT[0] * batch_volume + UT[0] * batch_height;
-        double batch_completion_time = closed_completion_time + batch_processing_time;
-        double batch_tardiness = 0.0;
-        for (int pid : it->second) {
-            batch_tardiness += std::max(0.0, batch_completion_time - D[pid]);
-        }
-
-        if (bid < max_batch_id) {
-            closed_completion_time = batch_completion_time;
-            closed_total_tardiness += batch_tardiness;
-        }
-        else {
-            last_batch_completion_time = batch_completion_time;
-            last_batch_tardiness = batch_tardiness;
-            last_batch_volume = batch_volume;
-            last_batch_height = batch_height;
+        double last_batch_processing_time = ST[0] + VT[0] * last_batch_volume + UT[0] * last_batch_height;
+        last_batch_completion_time = closed_completion_time + last_batch_processing_time;
+        for (int pid : last_batch) {
+            last_batch_tardiness += std::max(0.0, last_batch_completion_time - D[pid]);
         }
     }
 
@@ -538,13 +577,6 @@ std::pair<Node, Stats> branch_and_cut(
     reset_dp_memo_stats();
     clear_global_dp_cache(); // 【新增】清空上一轮实验留下的哈希表
 
-    // ----------------- 新增：支配规则映射表 -----------------
-    // Key: 已分配的零件集合（排序后的 vector）
-    // Value: 帕累托前沿列表（保存不同的 {TT, C} 组合）
-    std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash> dominance_map;
-    // -------------------------------------------------------
-
-
     double machine_area = L[0] * W[0];
 
     std::vector<double> individual_processing_times(parts.size());
@@ -593,10 +625,103 @@ std::pair<Node, Stats> branch_and_cut(
 
     Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
+    update_node_metrics(root, ST, VT, UT, h, v, D);
     root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
 
-    std::deque<Node> stack;
-    stack.push_back(root);
+    struct ActiveRecord {
+        Node node;
+        bool alive;
+    };
+
+    struct HeapEntry {
+        double lb;
+        std::size_t id;
+
+        bool operator>(const HeapEntry& other) const {
+            if (lb != other.lb) return lb > other.lb;
+            return id > other.id;
+        }
+    };
+
+    struct ActiveBucket {
+        std::vector<std::size_t> ids;
+        double min_tt = std::numeric_limits<double>::infinity();
+        double min_c = std::numeric_limits<double>::infinity();
+    };
+
+    std::vector<ActiveRecord> active_nodes;
+    std::vector<std::size_t> dfs_order;
+    std::priority_queue<HeapEntry, std::vector<HeapEntry>, std::greater<HeapEntry> > best_heap;
+    std::unordered_map<ActiveKey, ActiveBucket, ActiveKeyHash> active_index;
+    std::size_t active_count = 0;
+
+    auto is_alive_id = [&](std::size_t id) -> bool {
+        return id < active_nodes.size() && active_nodes[id].alive;
+        };
+
+    auto recompute_bucket_bounds = [&](ActiveBucket& bucket) {
+        bucket.min_tt = std::numeric_limits<double>::infinity();
+        bucket.min_c = std::numeric_limits<double>::infinity();
+        for (std::size_t id : bucket.ids) {
+            if (!is_alive_id(id)) continue;
+            const Node& nd = active_nodes[id].node;
+            bucket.min_tt = std::min(bucket.min_tt, nd.closed_total_tardiness);
+            bucket.min_c = std::min(bucket.min_c, nd.closed_completion_time);
+        }
+        };
+
+    auto add_active_node = [&](Node&& nd) {
+        const std::size_t id = active_nodes.size();
+        active_nodes.push_back(ActiveRecord{ std::move(nd), true });
+        dfs_order.push_back(id);
+        best_heap.push(HeapEntry{ active_nodes[id].node.LB, id });
+        ActiveBucket& bucket = active_index[make_active_key(active_nodes[id].node)];
+        bucket.ids.push_back(id);
+        const Node& active_node = active_nodes[id].node;
+        bucket.min_tt = std::min(bucket.min_tt, active_node.closed_total_tardiness);
+        bucket.min_c = std::min(bucket.min_c, active_node.closed_completion_time);
+        ++active_count;
+        };
+
+    auto remove_active_node = [&](std::size_t id) {
+        if (!is_alive_id(id)) return;
+        ActiveKey key = make_active_key(active_nodes[id].node);
+        active_nodes[id].alive = false;
+        --active_count;
+
+        auto map_it = active_index.find(key);
+        if (map_it == active_index.end()) return;
+        ActiveBucket& bucket = map_it->second;
+        bucket.ids.erase(std::remove(bucket.ids.begin(), bucket.ids.end(), id), bucket.ids.end());
+        if (bucket.ids.empty()) {
+            active_index.erase(map_it);
+        }
+        else {
+            recompute_bucket_bounds(bucket);
+        }
+        };
+
+    auto clean_best_heap = [&]() {
+        while (!best_heap.empty()) {
+            const std::size_t id = best_heap.top().id;
+            if (is_alive_id(id)) break;
+            best_heap.pop();
+        }
+        };
+
+    auto clean_dfs_order = [&]() {
+        while (!dfs_order.empty() && !is_alive_id(dfs_order.back())) {
+            dfs_order.pop_back();
+        }
+        };
+
+    auto current_min_lb = [&]() -> double {
+        clean_best_heap();
+        if (best_heap.empty()) return std::numeric_limits<double>::infinity();
+        return best_heap.top().lb;
+        };
+
+    add_active_node(std::move(root));
 
     auto t0 = std::chrono::steady_clock::now();
     if (UB > 0 && UB < std::numeric_limits<double>::infinity()) {
@@ -612,18 +737,15 @@ std::pair<Node, Stats> branch_and_cut(
     static constexpr double dom_epsilon = 1e-6; // 支配比较的容差
 
 
-    while (!stack.empty()) {
+    while (active_count > 0) {
         auto t1 = std::chrono::steady_clock::now();
         double elapsed = std::chrono::duration<double>(t1 - t0).count();
         if (time_limit_seconds > 0.0 && elapsed > time_limit_seconds) break;
 
         // === 实时记录当前最小 LB（用于收敛曲线） ===
-        if (!stack.empty()) {
+        if (active_count > 0) {
             double timestamp = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-            double min_LB = std::numeric_limits<double>::infinity();
-            for (const Node& nd : stack) {
-                if (nd.LB < min_LB) min_LB = nd.LB;
-            }
+            double min_LB = current_min_lb();
             if (min_LB >= UB) min_LB = UB;
             if (min_LB >= 0.0 && min_LB < std::numeric_limits<double>::infinity()) {
                 if (stats.LB_convergence.empty() || std::abs(min_LB - stats.LB_convergence.back().second) > epsilon) {
@@ -633,25 +755,29 @@ std::pair<Node, Stats> branch_and_cut(
         }
 
         // === 动态选择出栈策略 ===
-        if (stack.size() > static_cast<std::size_t>(max_capa)) {
+        if (active_count > static_cast<std::size_t>(max_capa)) {
             use_best_first = false;
         }
-        else if (stack.size() < static_cast<std::size_t>(min_capa)) {
+        else if (active_count < static_cast<std::size_t>(min_capa)) {
             use_best_first = true;
         }
 
         Node cur;
         if (use_best_first) {
-            auto best_it = std::min_element(stack.begin(), stack.end(),
-                [](const Node& a, const Node& b) {
-                    return a.LB < b.LB;
-                });
-            cur = *best_it;
-            stack.erase(best_it);
+            clean_best_heap();
+            if (best_heap.empty()) break;
+            const std::size_t id = best_heap.top().id;
+            best_heap.pop();
+            cur = active_nodes[id].node;
+            remove_active_node(id);
         }
         else {
-            cur = stack.back();
-            stack.pop_back();
+            clean_dfs_order();
+            if (dfs_order.empty()) break;
+            const std::size_t id = dfs_order.back();
+            dfs_order.pop_back();
+            cur = active_nodes[id].node;
+            remove_active_node(id);
         }
 
         ++stats.total_nodes;
@@ -698,67 +824,63 @@ std::pair<Node, Stats> branch_and_cut(
         // 只有当当前节点是根节点 (depth == 0) 时，才记录其子节点的名称和 LB
         bool is_root_node = (cur.depth == 0);
         auto [kids, pruned] = generate_children(cur, parts, machine_area, part_areas);
-        stats.generated_nodes += kids.size();
+        stats.generated_nodes += static_cast<int>(kids.size());
         stats.area_pruned_nodes += pruned;
 
         for (auto& child : kids) {
-            // Type I 只新增一个单零件批次，直接继承父节点 C/TT 做增量更新；
-            // Type II 会改变当前最后批次，保持原来的全量重算用于本组实验对照。
-            if (child.generation_type == 1) {
-                update_type1_child_metrics(cur, child, ST, VT, UT, h, v, D);
+            update_node_metrics(child, ST, VT, UT, h, v, D);
+
+            StateMetric child_closed_metric = { child.closed_total_tardiness, child.closed_completion_time };
+            bool is_dominated = false;
+            ActiveKey child_key = make_active_key(child);
+            auto bucket_it = active_index.find(child_key);
+
+            if (bucket_it != active_index.end()) {
+                const ActiveBucket& bucket = bucket_it->second;
+                if (bucket.min_tt <= child_closed_metric.tt + dom_epsilon &&
+                    bucket.min_c <= child_closed_metric.c + dom_epsilon) {
+                    for (std::size_t active_id : bucket.ids) {
+                        if (!is_alive_id(active_id)) continue;
+                        const Node& active_node = active_nodes[active_id].node;
+                        StateMetric active_metric = {
+                            active_node.closed_total_tardiness,
+                            active_node.closed_completion_time
+                        };
+                        if (dominates_metric(active_metric, child_closed_metric, dom_epsilon)) {
+                            is_dominated = true;
+                            break;
+                        }
+                    }
+                }
             }
-            else {
-                update_node_metrics(child, ST, VT, UT, h, v, D);
+            if (is_dominated) {
+                ++stats.dominance_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
+                continue;
             }
 
-            // ====================== 支配规则检查开始 ======================
-
-//// 1. 构建键值：已分配的零件集合（排序后）
-//            std::vector<int> assigned_key;
-//            assigned_key.reserve(parts.size());
-//            for (const auto& kv : child.S) {
-//                assigned_key.insert(assigned_key.end(), kv.second.begin(), kv.second.end());
-//            }
-//            std::sort(assigned_key.begin(), assigned_key.end());
-//
-//            // 2. 检查是否被支配
-//            auto& pareto_front = dominance_map[assigned_key];
-//            bool is_dominated = false;
-//
-//            for (const auto& metric : pareto_front) {
-//                // 如果历史记录中存在 TT 和 C 都比当前节点小（或相等）的状态
-//                if (metric.tt <= child.total_tardiness + dom_epsilon &&
-//                    metric.c <= child.completion_time + dom_epsilon) {
-//                    is_dominated = true;
-//                    break;
-//                }
-//            }
-//
-//            if (is_dominated) {
-//                // 当前节点被支配，剪枝（不放入栈中）
-//                // 此时也可以统计到 pruned_nodes 中，这里复用 U_pruned_nodes 或 LB_pruned_nodes
-//                ++stats.U_pruned_nodes;
-//                ++stats.pruned_nodes_per_depth[child.depth];
-//                continue;
-//            }
-//
-//            // 3. 更新支配表（维护帕累托前沿）
-//            // 如果当前节点没有被支配，则将其添加到前沿中，并移除那些被当前节点支配的历史状态
-//            // 这样可以保持 vector 大小最小化
-//            auto it = pareto_front.begin();
-//            while (it != pareto_front.end()) {
-//                // 如果当前节点比历史节点更优（TT更小且C更小），则删除历史节点
-//                if (child.total_tardiness <= it->tt + dom_epsilon &&
-//                    child.completion_time <= it->c + dom_epsilon) {
-//                    it = pareto_front.erase(it);
-//                }
-//                else {
-//                    ++it;
-//                }
-//            }
-//            pareto_front.push_back({ child.total_tardiness, child.completion_time });
-
-            // ====================== 支配规则检查结束 ======================
+            bucket_it = active_index.find(child_key);
+            if (bucket_it != active_index.end()) {
+                std::vector<std::size_t> dominated_ids;
+                dominated_ids.reserve(bucket_it->second.ids.size());
+                for (std::size_t active_id : bucket_it->second.ids) {
+                    if (!is_alive_id(active_id)) continue;
+                    const Node& active_node = active_nodes[active_id].node;
+                    StateMetric active_metric = {
+                        active_node.closed_total_tardiness,
+                        active_node.closed_completion_time
+                    };
+                    if (dominates_metric(child_closed_metric, active_metric, dom_epsilon)) {
+                        dominated_ids.push_back(active_id);
+                    }
+                }
+                for (std::size_t dominated_id : dominated_ids) {
+                    if (!is_alive_id(dominated_id)) continue;
+                    ++stats.dominance_pruned_nodes;
+                    ++stats.pruned_nodes_per_depth[active_nodes[dominated_id].node.depth];
+                    remove_active_node(dominated_id);
+                }
+            }
 
             //===============================下界计算=======================
                 //-------------------------------1.串行下界------
@@ -881,6 +1003,12 @@ std::pair<Node, Stats> branch_and_cut(
 
 
 
+            if (child.LB >= UB) {
+                ++stats.LB_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
+                continue;
+            }
+
         // ----------------- [修改开始] -----------------
          // 记录第一层子节点的详细信息
             if (is_root_node) {
@@ -914,17 +1042,7 @@ std::pair<Node, Stats> branch_and_cut(
                 stats.first_level_node_lbs.emplace_back(child.name, child.LB);
             }
             // ----------------- [修改结束] -----------------
-
-
-
-
-            if (child.LB < UB) {
-                stack.push_back(std::move(child));
-            }
-            else {
-                ++stats.LB_pruned_nodes;
-                ++stats.pruned_nodes_per_depth[child.depth];
-            }
+            add_active_node(std::move(child));
         }
     }
 
@@ -1119,12 +1237,7 @@ void trace_branch_and_bound(
            << "（另有 " << res.pruned_count << " 个 Type II 候选因容量约束(v)被剪）:\n";
 
         for (Node& child : res.children) {
-            if (child.generation_type == 1) {
-                update_type1_child_metrics(cur, child, ST, VT, UT, h, v, D);
-            }
-            else {
-                update_node_metrics(child, ST, VT, UT, h, v, D);
-            }
+            update_node_metrics(child, ST, VT, UT, h, v, D);
             child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
 
             os << indent << "    - " << describe_child(cur, child)
