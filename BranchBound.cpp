@@ -396,14 +396,16 @@ double compute_unassigned_lower_bound(
     double last_batch_tardiness = 0.0;
     double last_batch_volume = 0.0;
     double last_batch_height = 0.0;
-    static_cast<void>(machine_area);
-    static_cast<void>(part_areas);
+    // [新增：面积约束] 记录最后一个批次当前已经占用的面积。
+    double last_batch_area = 0.0;
 
     if (max_batch_id >= 0) {
         const auto& last_batch = node.S.at(max_batch_id);
         for (int pid : last_batch) {
             last_batch_volume += v[pid];
             last_batch_height = std::max(last_batch_height, h[pid]);
+            // [新增：面积约束] 累加最后一个批次内已分配零件的面积。
+            last_batch_area += part_areas[pid];
         }
 
         double last_batch_processing_time = ST[0] + VT[0] * last_batch_volume + UT[0] * last_batch_height;
@@ -421,7 +423,9 @@ double compute_unassigned_lower_bound(
             double new_batch_completion_time = last_batch_completion_time + single_processing_time;
             double optimistic_completion_time = new_batch_completion_time;
 
-            if (max_batch_id >= 0) {
+            // [新增：面积约束] 未分配零件只有在加入后不超过机器面积时，
+            // 才能使用“放入最后一个批次”的完成时间进行下界估计。
+            if (max_batch_id >= 0 && last_batch_area + part_areas[p] <= machine_area) {
                 double joined_volume = last_batch_volume + v[p];
                 double joined_height = std::max(last_batch_height, h[p]);
                 double joined_processing_time = ST[0] + VT[0] * joined_volume + UT[0] * joined_height;
@@ -926,8 +930,8 @@ std::pair<Node, Stats> branch_and_cut(
              //child.LB = compute_unassigned_lower_bound3(child, parts, D, ST, VT, UT, h, v);
                 //-------------------------------2.并行下界----------------------------------------------------
             // 原下界：未分配零件取 min（放入最后一个批次，在最后批次后作为独立并行批次）。
-            //child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
-            child.LB = compute_unassigned_lower_bound_parallel_last_as_unassigned(child, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
+            child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
+            //child.LB = compute_unassigned_lower_bound_parallel_last_as_unassigned(child, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
             //-------------------------------3.串并行比较-----------------------------------------------
         //double LB_parallel = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
         //double LB_serial = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);

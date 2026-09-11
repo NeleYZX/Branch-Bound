@@ -118,7 +118,7 @@ void run_single_instance(const std::string& filename) {
     std::vector<std::set<int>> infeasible_batches;
 
     double UB = result.second;
-    double time_limit = 3600.0; // 限制最大搜索时间，单位：秒
+    double time_limit = 1800.0; // 限制最大搜索时间，单位：秒
     std::string output_path = "search_log.txt"; // 用于保存搜索日志
 
     // ====== 分支过程追踪（观察 Type I / Type II 分支）======
