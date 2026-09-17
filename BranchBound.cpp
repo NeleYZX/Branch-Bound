@@ -332,7 +332,7 @@ double compute_unassigned_lower_bound(
     return node.total_tardiness + unassigned_tardiness;
 }
 
-// 位置下界 LBpos：仅用于 Type I 子节点。Type II 仍保留原并行下界。
+// [修改：LBpos] Type I 和 Type II 子节点统一使用该下界；估计时将最后一个批次视为未分配。
 double compute_positional_lower_bound(
     const Node& node,
     const std::vector<int>& parts,
@@ -347,11 +347,44 @@ double compute_positional_lower_bound(
     const std::vector<double>& h,
     const std::vector<double>& v
 ) {
-    std::unordered_set<int> assigned;
+    int max_batch_id = -1;
+    std::size_t assigned_count = 0;
     for (const auto& kv : node.S) {
-        for (int pid : kv.second) {
-            assigned.insert(pid);
+        max_batch_id = std::max(max_batch_id, kv.first);
+        assigned_count += kv.second.size();
+    }
+
+    // [新增：LBpos] 完整方案必须返回真实目标值，避免叶子节点用松弛下界更新 UB。
+    if (assigned_count == parts.size()) {
+        return node.total_tardiness;
+    }
+
+    // [新增：LBpos] 只把最后批次之前的批次作为已经固定的调度前缀；
+    // 最后一个批次中的零件不放入 fixed_assigned，因而会与真正未分配零件一起参与 LBpos。
+    std::unordered_set<int> fixed_assigned;
+    double fixed_completion_time = 0.0;
+    double fixed_total_tardiness = 0.0;
+    for (int batch_id = 0; batch_id < max_batch_id; ++batch_id) {
+        const auto batch_it = node.S.find(batch_id);
+        if (batch_it == node.S.end()) continue;
+
+        double batch_volume = 0.0;
+        double batch_height = 0.0;
+        for (int pid : batch_it->second) {
+            fixed_assigned.insert(pid);
+            batch_volume += v[pid];
+            batch_height = std::max(batch_height, h[pid]);
         }
+
+        fixed_completion_time += ST[0] + VT[0] * batch_volume + UT[0] * batch_height;
+        for (int pid : batch_it->second) {
+            fixed_total_tardiness += std::max(0.0, fixed_completion_time - D[pid]);
+        }
+    }
+
+    // 根节点没有最后批次，此时所有零件自然都属于待估计集合。
+    if (max_batch_id < 0) {
+        fixed_assigned.clear();
     }
 
     std::vector<double> areas;
@@ -359,8 +392,10 @@ double compute_positional_lower_bound(
     std::vector<double> volumes;
     std::vector<double> due_dates;
 
+    // [修改：LBpos] 待估计集合 = 真正未分配零件 + 当前最后批次中的零件，
+    // 因此这里只排除已经固定在最后批次之前的零件。
     for (int p : parts) {
-        if (assigned.find(p) == assigned.end()) {
+        if (fixed_assigned.find(p) == fixed_assigned.end()) {
             areas.push_back(l[p] * w[p]);
             heights.push_back(h[p]);
             volumes.push_back(v[p]);
@@ -370,7 +405,7 @@ double compute_positional_lower_bound(
 
     const std::size_t m = due_dates.size();
     if (m == 0) {
-        return node.total_tardiness;
+        return fixed_total_tardiness;
     }
 
     std::sort(areas.begin(), areas.end());
@@ -398,7 +433,7 @@ double compute_positional_lower_bound(
         height_bound += heights[k - 1];
 
         const double completion_lb =
-            node.completion_time +
+            fixed_completion_time +
             beta * ST[0] +
             UT[0] * height_bound +
             VT[0] * volume_prefix;
@@ -406,7 +441,7 @@ double compute_positional_lower_bound(
         positional_tardiness += std::max(0.0, completion_lb - due_dates[k - 1]);
     }
 
-    return node.total_tardiness + positional_tardiness;
+    return fixed_total_tardiness + positional_tardiness;
 }
 
 //不使用DP算法的串行计算
@@ -797,13 +832,9 @@ std::pair<Node, Stats> branch_and_cut(
                 //-------------------------------1.串行下界------
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
              //child.LB = compute_unassigned_lower_bound3(child, parts, D, ST, VT, UT, h, v);
-                //-------------------------------2.Type1 增量 metrics + LBpos；Type2 全量 metrics + 原下界-------
-            if (is_type1_child) {
-                child.LB = compute_positional_lower_bound(child, parts, D, ST, VT, UT, L, W, l, w, h, v);//针对type1
-            }
-            else {
-                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);//针对type2
-            }
+                //-------------------------------2. [修改：LBpos] Type I 与 Type II 统一使用 LBpos-------
+            child.LB = compute_positional_lower_bound(
+                child, parts, D, ST, VT, UT, L, W, l, w, h, v);
 
 
         // ----------------- [修改开始] -----------------
@@ -1046,12 +1077,13 @@ void trace_branch_and_bound(
             const bool is_type1_child = (child.generation_type == 1);
             if (is_type1_child) {
                 update_type1_metrics_incrementally(cur, child, ST, VT, UT, h, v, D);
-                child.LB = compute_positional_lower_bound(child, parts, D, ST, VT, UT, L, W, l, w, h, v);
             }
             else {
                 update_node_metrics(child, ST, VT, UT, h, v, D);
-                child.LB = compute_unassigned_lower_bound(child, parts, D, ST, VT, UT, h, v);
             }
+            // [修改：LBpos] 分支追踪与正式搜索保持一致，两类节点统一使用 LBpos。
+            child.LB = compute_positional_lower_bound(
+                child, parts, D, ST, VT, UT, L, W, l, w, h, v);
 
             os << indent << "    - " << describe_child(cur, child)
                << "  => " << batches_to_string(child)
