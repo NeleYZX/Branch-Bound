@@ -306,30 +306,65 @@ double compute_unassigned_lower_bound(
     const std::vector<double>& VT,
     const std::vector<double>& UT,
     const std::vector<double>& h,
-    const std::vector<double>& v
+    const std::vector<double>& v,
+    double machine_area,
+    const std::vector<double>& part_areas
 ) {
-    // 找出已分配的零件
     std::unordered_set<int> assigned;
-    for (const auto& [_, part_ids] : node.S) {
-        for (int pid : part_ids) {
-            assigned.insert(pid);
+    int max_batch_id = -1;
+    for (const auto& kv : node.S) {
+        max_batch_id = std::max(max_batch_id, kv.first);
+        for (int pid : kv.second) assigned.insert(pid);
+    }
+
+    double closed_completion_time = node.closed_completion_time;
+    double closed_total_tardiness = node.closed_total_tardiness;
+    double last_batch_completion_time = closed_completion_time;
+    double last_batch_tardiness = 0.0;
+    double last_batch_volume = 0.0;
+    double last_batch_height = 0.0;
+    // [新增：面积约束] 记录最后一个批次当前已经占用的面积。
+    double last_batch_area = 0.0;
+
+    if (max_batch_id >= 0) {
+        const auto& last_batch = node.S.at(max_batch_id);
+        for (int pid : last_batch) {
+            last_batch_volume += v[pid];
+            last_batch_height = std::max(last_batch_height, h[pid]);
+            // [新增：面积约束] 累加最后一个批次内已分配零件的面积。
+            last_batch_area += part_areas[pid];
+        }
+
+        double last_batch_processing_time = ST[0] + VT[0] * last_batch_volume + UT[0] * last_batch_height;
+        last_batch_completion_time = closed_completion_time + last_batch_processing_time;
+        for (int pid : last_batch) {
+            last_batch_tardiness += std::max(0.0, last_batch_completion_time - D[pid]);
         }
     }
 
-    // 初始化未分配部分的延迟估计
     double unassigned_tardiness = 0.0;
 
     for (int p : parts) {
         if (assigned.find(p) == assigned.end()) {
-            // 对每个未分配零件，估算加工时间并独立批次处理
-            double pt = ST[0] + VT[0] * v[p] + UT[0] * h[p];
-            double c = node.completion_time + pt;  // 假设从当前时间并行开始
-            unassigned_tardiness += std::max(0.0, c - D[p]);
+            double single_processing_time = ST[0] + VT[0] * v[p] + UT[0] * h[p];
+            double new_batch_completion_time = last_batch_completion_time + single_processing_time;
+            double optimistic_completion_time = new_batch_completion_time;
+
+            // [新增：面积约束] 未分配零件只有在加入后不超过机器面积时，
+            // 才能使用“放入最后一个批次”的完成时间进行下界估计。
+            if (max_batch_id >= 0 && last_batch_area + part_areas[p] <= machine_area) {
+                double joined_volume = last_batch_volume + v[p];
+                double joined_height = std::max(last_batch_height, h[p]);
+                double joined_processing_time = ST[0] + VT[0] * joined_volume + UT[0] * joined_height;
+                double joined_completion_time = closed_completion_time + joined_processing_time;
+                optimistic_completion_time = std::min(optimistic_completion_time, joined_completion_time);
+            }
+
+            unassigned_tardiness += std::max(0.0, optimistic_completion_time - D[p]);
         }
     }
 
-    // 返回当前延迟 + 未来估计
-    return node.total_tardiness + unassigned_tardiness;
+    return closed_total_tardiness + last_batch_tardiness + unassigned_tardiness;
 }
 
 // [修改：LBpos] Type I 和 Type II 子节点统一使用该下界；估计时将最后一个批次视为未分配。
