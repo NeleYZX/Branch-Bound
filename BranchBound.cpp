@@ -831,6 +831,68 @@ static void update_type1_metrics_incrementally(
     child.closed_batches_total_tardiness = parent.total_tardiness;
 }
 
+//========================PDF Proposition 3：节点状态支配========================
+// 支配比较必须同时固定：
+//   1) 已调度零件集合（等价于固定未分配集合 R）；
+//   2) 当前开放批次 L 的零件集合。
+// 只按“已调度集合”分组不安全，因为不同开放批次具有不同的剩余容量和
+// Type-II 可加入零件集合。这里用 INT_MIN 分隔两个排序后的集合。
+static std::vector<int> build_dominance_key(const Node& node) {
+    int open_batch_id = -1;
+    std::vector<int> scheduled_parts;
+    for (const auto& kv : node.S) {
+        open_batch_id = std::max(open_batch_id, kv.first);
+        scheduled_parts.insert(
+            scheduled_parts.end(), kv.second.begin(), kv.second.end());
+    }
+    std::sort(scheduled_parts.begin(), scheduled_parts.end());
+
+    std::vector<int> open_batch_parts;
+    if (open_batch_id >= 0) {
+        open_batch_parts = node.S.at(open_batch_id);
+        std::sort(open_batch_parts.begin(), open_batch_parts.end());
+    }
+
+    std::vector<int> key;
+    key.reserve(scheduled_parts.size() + open_batch_parts.size() + 1);
+    key.insert(key.end(), scheduled_parts.begin(), scheduled_parts.end());
+    key.push_back(std::numeric_limits<int>::min());
+    key.insert(key.end(), open_batch_parts.begin(), open_batch_parts.end());
+    return key;
+}
+
+// 对同一 (R,L) 状态维护 (TTcl,tprev) 的 Pareto 前沿。
+// 历史状态若在两项上均不差，当前节点不可能得到更好的完整调度。
+// 完全相等的状态属于重复节点，也可安全删除。
+static bool dominated_or_insert(
+    const Node& node,
+    std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash>& frontier,
+    double epsilon
+) {
+    const std::vector<int> key = build_dominance_key(node);
+    auto& pareto = frontier[key];
+    const double closed_time = node.closed_batches_completion_time;
+    const double closed_tardiness = node.closed_batches_total_tardiness;
+
+    for (const StateMetric& old : pareto) {
+        if (old.c <= closed_time + epsilon &&
+            old.tt <= closed_tardiness + epsilon) {
+            return true;
+        }
+    }
+
+    pareto.erase(
+        std::remove_if(
+            pareto.begin(), pareto.end(),
+            [&](const StateMetric& old) {
+                return closed_time <= old.c + epsilon &&
+                       closed_tardiness <= old.tt + epsilon;
+            }),
+        pareto.end());
+    pareto.push_back({ closed_tardiness, closed_time });
+    return false;
+}
+
 
 
 //========================Branch and Bound（无任何调试输出）========================
@@ -857,11 +919,9 @@ std::pair<Node, Stats> branch_and_cut(
     reset_dp_memo_stats();
     clear_global_dp_cache(); // 【新增】清空上一轮实验留下的哈希表
 
-    // ----------------- 新增：支配规则映射表 -----------------
-    // Key: 已分配的零件集合（排序后的 vector）
-    // Value: 帕累托前沿列表（保存不同的 {TT, C} 组合）
+    // PDF Proposition 3 支配表：key=(已调度集合, 当前开放批次)，
+    // value 为已封闭前缀 (TTcl,tprev) 的 Pareto 前沿。
     std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash> dominance_map;
-    // -------------------------------------------------------
 
 
     double machine_area = L[0] * W[0];
@@ -878,6 +938,20 @@ std::pair<Node, Stats> branch_and_cut(
         }
         return cnt == parts.size();
         };
+
+    // 支配表中只能保存可行节点；否则不可行状态可能错误支配可行状态。
+    auto is_infeasible_node = [&](const Node& nd) -> bool {
+        for (const auto& batch : nd.S) {
+            for (const auto& infeasible_set : initial_infeasible) {
+                if (std::includes(
+                        batch.second.begin(), batch.second.end(),
+                        infeasible_set.begin(), infeasible_set.end())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
 
     Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
@@ -899,7 +973,8 @@ std::pair<Node, Stats> branch_and_cut(
     int min_capa = 2000;
     bool use_best_first = true;
     static constexpr double epsilon = 1e-10;
-    static constexpr double dom_epsilon = 1e-6; // 支配比较的容差
+    // 支配关系来自严格数学不等式，只保留很小的浮点容差，避免放宽过度。
+    static constexpr double dom_epsilon = 1e-9;
 
 
     while (!stack.empty()) {
@@ -947,18 +1022,7 @@ std::pair<Node, Stats> branch_and_cut(
         ++stats.total_nodes;
 
         // 不可行剪枝
-        bool bad = false;
-        for (const auto& it : cur.S) {
-            for (const auto& infeasible_set : initial_infeasible) {
-                if (std::includes(it.second.begin(), it.second.end(),
-                    infeasible_set.begin(), infeasible_set.end())) {
-                    bad = true;
-                    break;
-                }
-            }
-            if (bad) break;
-        }
-        if (bad) {
+        if (is_infeasible_node(cur)) {
             ++stats.U_pruned_nodes;
             ++stats.pruned_nodes_per_depth[cur.depth];
             continue;
@@ -1000,54 +1064,21 @@ std::pair<Node, Stats> branch_and_cut(
                 update_node_metrics(child, ST, VT, UT, h, v, D);
             }
 
-            // ====================== 支配规则检查开始 ======================
+            // 先排除不可行节点，避免不可行状态进入支配表并错误支配可行节点。
+            if (is_infeasible_node(child)) {
+                ++stats.U_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
+                continue;
+            }
 
-//// 1. 构建键值：已分配的零件集合（排序后）
-//            std::vector<int> assigned_key;
-//            assigned_key.reserve(parts.size());
-//            for (const auto& kv : child.S) {
-//                assigned_key.insert(assigned_key.end(), kv.second.begin(), kv.second.end());
-//            }
-//            std::sort(assigned_key.begin(), assigned_key.end());
-//
-//            // 2. 检查是否被支配
-//            auto& pareto_front = dominance_map[assigned_key];
-//            bool is_dominated = false;
-//
-//            for (const auto& metric : pareto_front) {
-//                // 如果历史记录中存在 TT 和 C 都比当前节点小（或相等）的状态
-//                if (metric.tt <= child.total_tardiness + dom_epsilon &&
-//                    metric.c <= child.completion_time + dom_epsilon) {
-//                    is_dominated = true;
-//                    break;
-//                }
-//            }
-//
-//            if (is_dominated) {
-//                // 当前节点被支配，剪枝（不放入栈中）
-//                // 此时也可以统计到 pruned_nodes 中，这里复用 U_pruned_nodes 或 LB_pruned_nodes
-//                ++stats.U_pruned_nodes;
-//                ++stats.pruned_nodes_per_depth[child.depth];
-//                continue;
-//            }
-//
-//            // 3. 更新支配表（维护帕累托前沿）
-//            // 如果当前节点没有被支配，则将其添加到前沿中，并移除那些被当前节点支配的历史状态
-//            // 这样可以保持 vector 大小最小化
-//            auto it = pareto_front.begin();
-//            while (it != pareto_front.end()) {
-//                // 如果当前节点比历史节点更优（TT更小且C更小），则删除历史节点
-//                if (child.total_tardiness <= it->tt + dom_epsilon &&
-//                    child.completion_time <= it->c + dom_epsilon) {
-//                    it = pareto_front.erase(it);
-//                }
-//                else {
-//                    ++it;
-//                }
-//            }
-//            pareto_front.push_back({ child.total_tardiness, child.completion_time });
-
-            // ====================== 支配规则检查结束 ======================
+            // PDF Proposition 3：Type-I 和 Type-II 子节点共用同一支配规则。
+            // 相同 (R,L) 下，比较已封闭前缀的 (tprev,TTcl)，而不是包含
+            // 当前开放批次暂定贡献的 (completion_time,total_tardiness)。
+            if (dominated_or_insert(child, dominance_map, dom_epsilon)) {
+                ++stats.dominance_pruned_nodes;
+                ++stats.pruned_nodes_per_depth[child.depth];
+                continue;
+            }
 
             //===============================下界计算=======================
                 //-------------------------------1.串行下界------
@@ -1209,11 +1240,15 @@ void trace_branch_and_bound(
     long long generated_nodes = 0;   // 生成的子节点数
     long long area_pruned_nodes = 0; // 因容量(v)被剪的 Type II 候选数
     long long LB_pruned_nodes = 0;   // 因下界被剪的节点数
+    long long dominance_pruned_nodes = 0; // PDF Proposition 3 支配剪枝数
     long long leaf_nodes = 0;        // 到达的叶子数
     long long updated_solutions = 0; // UB 被刷新的次数
     std::map<int, int> pruned_nodes_per_depth; // 每个深度被剪枝的节点数
 
     double best_ub = UB;
+    std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash>
+        dominance_map;
+    constexpr double dominance_epsilon = 1e-9;
 
     auto count_assigned = [&](const Node& nd) -> std::size_t {
         std::size_t c = 0;
@@ -1303,6 +1338,17 @@ void trace_branch_and_bound(
             else {
                 update_node_metrics(child, ST, VT, UT, h, v, D);
             }
+
+            // 与正式搜索一致：相同 (R,L) 下比较已封闭前缀 (tprev,TTcl)。
+            if (dominated_or_insert(
+                    child, dominance_map, dominance_epsilon)) {
+                ++dominance_pruned_nodes;
+                ++pruned_nodes_per_depth[child.depth];
+                os << indent << "    - " << describe_child(cur, child)
+                   << "  [状态支配剪枝：相同未分配集合与开放批次下，"
+                      "已有节点的 tprev/TTcl 均不大]\n";
+                continue;
+            }
             // 与正式搜索一致：两类节点统一使用 max(LBpar, LBpos)。
             child.LB = compute_LBpar_LBpos(
                 child, parts, D, ST, VT, UT, L, W, l, w, h, v, best_ub);
@@ -1332,6 +1378,8 @@ void trace_branch_and_bound(
     os << "  UB 刷新次数 updated_solutions = " << updated_solutions << "\n";
     os << "  容量(v)剪枝 area_pruned_nodes = " << area_pruned_nodes << "\n";
     os << "  下界剪枝 LB_pruned_nodes = " << LB_pruned_nodes << "\n";
+    os << "  状态支配剪枝 dominance_pruned_nodes = "
+       << dominance_pruned_nodes << "\n";
     os << "  各深度被剪枝节点数 (Depth : PrunedNodes):\n";
     for (const auto& kv : pruned_nodes_per_depth) {
         os << "    深度 " << kv.first << " : " << kv.second << "\n";

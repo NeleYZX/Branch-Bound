@@ -50,8 +50,8 @@ public:
 
 //========================= 支配规则辅助结构 =========================
 struct StateMetric {
-    double tt; // 总延迟 (Total Tardiness)
-    double c;  // 完成时间 (Completion Time)
+    double tt; // 已封闭批次的精确总拖期 TTcl
+    double c;  // 已封闭批次前缀的完成时间 tprev
 };
 
 // 用于让 std::vector<int> 能作为 std::unordered_map 的 key
@@ -193,6 +193,7 @@ struct Stats {
     int area_pruned_nodes = 0;
     int LB_pruned_nodes = 0;
     int U_pruned_nodes = 0;
+    long long dominance_pruned_nodes = 0; // PDF Proposition 3：状态支配剪枝数
     int leaf_nodes = 0;
     std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
