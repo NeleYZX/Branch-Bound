@@ -81,7 +81,9 @@ std::pair<BatchMap, double> generateInitialSolution(
 
 //===========================Node 定义===============================
 Node::Node()
-    : LB(0.0), completion_time(0.0), total_tardiness(0.0), name("N"), depth(0),
+    : LB(0.0), completion_time(0.0), total_tardiness(0.0),
+      closed_batches_completion_time(0.0), closed_batches_total_tardiness(0.0),
+      name("N"), depth(0),
       generation_type(0), added_part(-1) {
 }
 
@@ -93,8 +95,9 @@ Node::Node(const std::unordered_map<int, std::vector<int>>& S_,
     int depth_,
     int generation_type_,
     int added_part_)
-    : S(S_), LB(LB_), name(name_),
-    completion_time(completion_time_), total_tardiness(total_tardiness_), depth(depth_),
+    : S(S_), LB(LB_), completion_time(completion_time_), total_tardiness(total_tardiness_),
+    closed_batches_completion_time(0.0), closed_batches_total_tardiness(0.0),
+    name(name_), depth(depth_),
     generation_type(generation_type_), added_part(added_part_) {
 }
 
@@ -260,8 +263,10 @@ void update_node_metrics(
     const std::vector<double>& v,
     const std::vector<double>& D
 ) {
-    double current_time = 0.0;
-    double total_tardiness = 0.0;
+    double current_completion_time = 0.0;
+    double current_total_tardiness = 0.0;
+    double closed_batches_completion_time = 0.0;
+    double closed_batches_total_tardiness = 0.0;
 
     int max_batch_id = -1;
     for (const auto& kv : node.S) {
@@ -283,17 +288,25 @@ void update_node_metrics(
 
         // 计算当前批次的加工时间 (PT = 准备时间 + 体积相关时间 + 高度相关时间)
         double PT = ST[0] + VT[0] * vol + UT[0] * mh;
-        current_time += PT;
+        current_completion_time += PT;
 
         // 累加当前批次所有零件的延迟
         for (int pid : batch) {
-            total_tardiness += std::max(0.0, current_time - D[pid]);
+            current_total_tardiness += std::max(0.0, current_completion_time - D[pid]);
+        }
+
+        // 除最后一个（开放）批次外，其余批次构成已经封闭的调度前缀。
+        if (i < max_batch_id) {
+            closed_batches_completion_time = current_completion_time;
+            closed_batches_total_tardiness = current_total_tardiness;
         }
     }
 
     // 固化节点的最终状态
-    node.completion_time = current_time;
-    node.total_tardiness = total_tardiness;
+    node.completion_time = current_completion_time;
+    node.total_tardiness = current_total_tardiness;
+    node.closed_batches_completion_time = closed_batches_completion_time;
+    node.closed_batches_total_tardiness = closed_batches_total_tardiness;
 }
 
 //=======================未分配零件总延迟下界估计====================
@@ -317,28 +330,31 @@ double compute_unassigned_lower_bound(
         for (int pid : kv.second) assigned.insert(pid);
     }
 
-    double closed_completion_time = node.closed_completion_time;
-    double closed_total_tardiness = node.closed_total_tardiness;
-    double last_batch_completion_time = closed_completion_time;
-    double last_batch_tardiness = 0.0;
-    double last_batch_volume = 0.0;
-    double last_batch_height = 0.0;
+    const double closed_batches_completion_time = node.closed_batches_completion_time;
+    const double closed_batches_total_tardiness = node.closed_batches_total_tardiness;
+    double open_batch_completion_time = closed_batches_completion_time;
+    double open_batch_tardiness = 0.0;
+    double open_batch_volume = 0.0;
+    double open_batch_height = 0.0;
+    int max_part_id_in_open_batch = -1;
     // [新增：面积约束] 记录最后一个批次当前已经占用的面积。
-    double last_batch_area = 0.0;
+    double open_batch_area = 0.0;
 
     if (max_batch_id >= 0) {
         const auto& last_batch = node.S.at(max_batch_id);
         for (int pid : last_batch) {
-            last_batch_volume += v[pid];
-            last_batch_height = std::max(last_batch_height, h[pid]);
+            open_batch_volume += v[pid];
+            open_batch_height = std::max(open_batch_height, h[pid]);
+            max_part_id_in_open_batch = std::max(max_part_id_in_open_batch, pid);
             // [新增：面积约束] 累加最后一个批次内已分配零件的面积。
-            last_batch_area += part_areas[pid];
+            open_batch_area += part_areas[pid];
         }
 
-        double last_batch_processing_time = ST[0] + VT[0] * last_batch_volume + UT[0] * last_batch_height;
-        last_batch_completion_time = closed_completion_time + last_batch_processing_time;
+        const double open_batch_processing_time =
+            ST[0] + VT[0] * open_batch_volume + UT[0] * open_batch_height;
+        open_batch_completion_time = closed_batches_completion_time + open_batch_processing_time;
         for (int pid : last_batch) {
-            last_batch_tardiness += std::max(0.0, last_batch_completion_time - D[pid]);
+            open_batch_tardiness += std::max(0.0, open_batch_completion_time - D[pid]);
         }
     }
 
@@ -347,16 +363,17 @@ double compute_unassigned_lower_bound(
     for (int p : parts) {
         if (assigned.find(p) == assigned.end()) {
             double single_processing_time = ST[0] + VT[0] * v[p] + UT[0] * h[p];
-            double new_batch_completion_time = last_batch_completion_time + single_processing_time;
+            double new_batch_completion_time = open_batch_completion_time + single_processing_time;
             double optimistic_completion_time = new_batch_completion_time;
 
             // [新增：面积约束] 未分配零件只有在加入后不超过机器面积时，
             // 才能使用“放入最后一个批次”的完成时间进行下界估计。
-            if (max_batch_id >= 0 && last_batch_area + part_areas[p] <= machine_area) {
-                double joined_volume = last_batch_volume + v[p];
-                double joined_height = std::max(last_batch_height, h[p]);
+            if (max_batch_id >= 0 && p > max_part_id_in_open_batch &&
+                open_batch_area + part_areas[p] <= machine_area) {
+                double joined_volume = open_batch_volume + v[p];
+                double joined_height = std::max(open_batch_height, h[p]);
                 double joined_processing_time = ST[0] + VT[0] * joined_volume + UT[0] * joined_height;
-                double joined_completion_time = closed_completion_time + joined_processing_time;
+                double joined_completion_time = closed_batches_completion_time + joined_processing_time;
                 optimistic_completion_time = std::min(optimistic_completion_time, joined_completion_time);
             }
 
@@ -364,7 +381,7 @@ double compute_unassigned_lower_bound(
         }
     }
 
-    return closed_total_tardiness + last_batch_tardiness + unassigned_tardiness;
+    return closed_batches_total_tardiness + open_batch_tardiness + unassigned_tardiness;
 }
 
 // [修改：LBpos] Type I 和 Type II 子节点统一使用该下界；估计时将最后一个批次视为未分配。
@@ -477,6 +494,201 @@ double compute_positional_lower_bound(
     }
 
     return fixed_total_tardiness + positional_tardiness;
+}
+
+//=======================PDF 版本的位置松弛下界====================
+// 保留当前最后一个批次作为开放批次，只对真正未分配零件 R(c) 排序。
+// 返回完整节点下界：base(c) + LBpos(c)。
+double compute_positional_lower_bound_relaxation(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& L,
+    const std::vector<double>& W,
+    const std::vector<double>& l,
+    const std::vector<double>& w,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+) {
+    const double machine_area = L[0] * W[0];
+    const double eps = 1e-9;
+
+    std::unordered_set<int> assigned;
+    int open_batch_id = -1;
+    for (const auto& kv : node.S) {
+        open_batch_id = std::max(open_batch_id, kv.first);
+        for (int part_id : kv.second) assigned.insert(part_id);
+    }
+
+    const bool has_open_batch = open_batch_id >= 0;
+    double open_batch_area = 0.0;
+    double open_batch_volume = 0.0;
+    double open_batch_height = 0.0;
+    double base = node.closed_batches_total_tardiness;
+
+    if (has_open_batch) {
+        const auto& open_batch = node.S.at(open_batch_id);
+        for (int part_id : open_batch) {
+            open_batch_area += l[part_id] * w[part_id];
+            open_batch_volume += v[part_id];
+            open_batch_height = std::max(open_batch_height, h[part_id]);
+        }
+
+        const double open_batch_completion_time =
+            node.closed_batches_completion_time + ST[0]
+            + VT[0] * open_batch_volume
+            + UT[0] * open_batch_height;
+        for (int part_id : open_batch) {
+            base += std::max(0.0, open_batch_completion_time - D[part_id]);
+        }
+    }
+
+    // 只收集真正未分配零件 R(c)，不释放当前开放批次。
+    std::vector<double> remaining_areas;
+    std::vector<double> remaining_volumes;
+    std::vector<double> remaining_heights;
+    std::vector<double> remaining_due_dates;
+    remaining_areas.reserve(parts.size());
+    remaining_volumes.reserve(parts.size());
+    remaining_heights.reserve(parts.size());
+    remaining_due_dates.reserve(parts.size());
+
+    for (int part_id : parts) {
+        if (assigned.find(part_id) == assigned.end()) {
+            remaining_areas.push_back(l[part_id] * w[part_id]);
+            remaining_volumes.push_back(v[part_id]);
+            remaining_heights.push_back(h[part_id]);
+            remaining_due_dates.push_back(D[part_id]);
+        }
+    }
+
+    const std::size_t remaining_count = remaining_due_dates.size();
+    if (remaining_count == 0) return base;
+
+    std::sort(remaining_areas.begin(), remaining_areas.end());
+    std::sort(remaining_volumes.begin(), remaining_volumes.end());
+    std::sort(remaining_heights.begin(), remaining_heights.end());
+    std::sort(remaining_due_dates.begin(), remaining_due_dates.end());
+
+    std::vector<double> height_prefix(remaining_count + 1, 0.0);
+    for (std::size_t i = 0; i < remaining_count; ++i) {
+        height_prefix[i + 1] = height_prefix[i] + remaining_heights[i];
+    }
+
+    // r0 是严格大于开放批次高度的第一个剩余高度位置。
+    std::size_t r0 = 0;
+    if (has_open_batch) {
+        while (r0 < remaining_count &&
+               remaining_heights[r0] <= open_batch_height + eps) {
+            ++r0;
+        }
+    }
+
+    double area_prefix = 0.0;
+    double volume_prefix = 0.0;
+    double positional_tardiness = 0.0;
+
+    for (std::size_t k = 1; k <= remaining_count; ++k) {
+        area_prefix += remaining_areas[k - 1];
+        volume_prefix += remaining_volumes[k - 1];
+
+        long long beta_area = static_cast<long long>(
+            std::ceil((open_batch_area + area_prefix) / machine_area - 1e-6));
+        beta_area = std::max(1LL, beta_area);
+
+        const long long batch_cap =
+            static_cast<long long>(k) + (has_open_batch ? 1LL : 0LL);
+        const long long beta = std::min(batch_cap, beta_area);
+
+        const double largest_height = has_open_batch
+            ? std::max(remaining_heights[k - 1], open_batch_height)
+            : remaining_heights[k - 1];
+
+        const long long additional_height_count = beta - 1;
+        double smallest_height_sum = 0.0;
+        if (additional_height_count > 0) {
+            if (!has_open_batch) {
+                smallest_height_sum =
+                    height_prefix[static_cast<std::size_t>(additional_height_count)];
+            }
+            else {
+                const std::size_t no_greater_than_open = std::min(k, r0);
+                if (static_cast<std::size_t>(additional_height_count) <=
+                    no_greater_than_open) {
+                    smallest_height_sum = height_prefix[
+                        static_cast<std::size_t>(additional_height_count)];
+                }
+                else {
+                    smallest_height_sum = height_prefix[
+                        static_cast<std::size_t>(additional_height_count - 1)]
+                        + open_batch_height;
+                }
+            }
+        }
+
+        const double height_bound = largest_height + smallest_height_sum;
+        const double completion_lower_bound =
+            node.closed_batches_completion_time
+            + static_cast<double>(beta) * ST[0]
+            + VT[0] * (open_batch_volume + volume_prefix)
+            + UT[0] * height_bound;
+
+        positional_tardiness += std::max(
+            0.0, completion_lower_bound - remaining_due_dates[k - 1]);
+    }
+
+    return base + positional_tardiness;
+}
+
+//=======================LBpar 与 LBpos 的组合入口====================
+double compute_LBpar_LBpos(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& L,
+    const std::vector<double>& W,
+    const std::vector<double>& l,
+    const std::vector<double>& w,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    double UB,
+    bool use_pos,
+    double gamma,
+    double positional_bound_fraction
+) {
+    const double machine_area = L[0] * W[0];
+    std::vector<double> part_areas(parts.size(), 0.0);
+    for (int part_id : parts) {
+        part_areas[part_id] = l[part_id] * w[part_id];
+    }
+
+    // LBpar 始终计算，也仍可通过 compute_unassigned_lower_bound 单独调用。
+    const double lb_par = compute_unassigned_lower_bound(
+        node, parts, D, ST, VT, UT, h, v, machine_area, part_areas);
+
+    std::size_t assigned_count = 0;
+    for (const auto& kv : node.S) assigned_count += kv.second.size();
+    const std::size_t remaining_count = parts.size() - assigned_count;
+
+    const bool shallow_enough =
+        remaining_count >= positional_bound_fraction * parts.size();
+    const bool strong_enough =
+        gamma <= 0.0 || (std::isfinite(UB) && lb_par >= gamma * UB);
+
+    if (!use_pos || !shallow_enough || !strong_enough) {
+        return lb_par;
+    }
+
+    // 不改变 LBpos 的独立实现；这里只调用它并与完整 LBpar 取最大值。
+    const double lb_pos = compute_positional_lower_bound_relaxation(
+        node, parts, D, ST, VT, UT, L, W, l, w, h, v);
+    return std::max(lb_par, lb_pos);
 }
 
 //不使用DP算法的串行计算
@@ -614,6 +826,9 @@ static void update_type1_metrics_incrementally(
     child.completion_time = parent.completion_time + processing_time;
     child.total_tardiness =
         parent.total_tardiness + std::max(0.0, child.completion_time - D[added_part]);
+    // Type I 封闭父节点的开放批次，再以 added_part 创建新的开放批次。
+    child.closed_batches_completion_time = parent.completion_time;
+    child.closed_batches_total_tardiness = parent.total_tardiness;
 }
 
 
@@ -651,37 +866,6 @@ std::pair<Node, Stats> branch_and_cut(
 
     double machine_area = L[0] * W[0];
 
-    std::vector<double> individual_processing_times(parts.size());
-
-    // 遍历 parts 列表的索引
-    for (std::size_t i = 0; i < parts.size(); ++i) {
-        int current_part_id = parts[i];
-        individual_processing_times[i] = ST[0] + VT[0] * v[current_part_id] + UT[0] * h[current_part_id];
-    }
-
-    // ========= 新增：根据已分配/未分配数量选择 LB 的小函数 =========
-    auto compute_node_LB = [&](const Node& nd) -> double {
-        // 统计已分配零件数量
-        std::size_t assigned_cnt = 0;
-        for (const auto& kv : nd.S) {
-            assigned_cnt += kv.second.size();
-        }
-        int unassigned_cnt = static_cast<int>(parts.size() - assigned_cnt);
-
-        // 阈值：最多允许多少未分配零件时才用 DP 下界
-        // 可以根据问题规模调，比如 8~12
-        const int MAX_UNASSIGNED_FOR_DP = 10;
-
-        if (unassigned_cnt <= MAX_UNASSIGNED_FOR_DP) {
-            // 未分配数量很少，用便宜的简单下界v
-            return compute_unassigned_lower_bound(nd, parts, D, ST, VT, UT, h, v);
-        }
-        else {
-            // 未分配数量很多，用更精确的 DP 下界
-            return compute_unassigned_lower_bound2(nd, parts, D, ST, VT, UT, h, v, individual_processing_times);
-        }
-        };
-
     std::vector<double> part_areas(parts.size(), 0.0);
     for (std::size_t i = 0; i < parts.size(); ++i) {
         part_areas[parts[i]] = l[parts[i]] * w[parts[i]];
@@ -697,7 +881,9 @@ std::pair<Node, Stats> branch_and_cut(
 
     Node best(initial_S, 0.0, "Best", 0.0, 0.0, 0);
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
-    root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
+    update_node_metrics(root, ST, VT, UT, h, v, D);
+    root.LB = compute_LBpar_LBpos(
+        root, parts, D, ST, VT, UT, L, W, l, w, h, v, UB);
 
     std::deque<Node> stack;
     stack.push_back(root);
@@ -867,9 +1053,9 @@ std::pair<Node, Stats> branch_and_cut(
                 //-------------------------------1.串行下界------
             //child.LB = compute_unassigned_lower_bound2(child, parts, D, ST, VT, UT, h, v, individual_processing_times);
              //child.LB = compute_unassigned_lower_bound3(child, parts, D, ST, VT, UT, h, v);
-                //-------------------------------2. [修改：LBpos] Type I 与 Type II 统一使用 LBpos-------
-            child.LB = compute_positional_lower_bound(
-                child, parts, D, ST, VT, UT, L, W, l, w, h, v);
+            // Type I / Type II 统一使用 max(LBpar, LBpos)，LBpos 受浅层门控。
+            child.LB = compute_LBpar_LBpos(
+                child, parts, D, ST, VT, UT, L, W, l, w, h, v, UB);
 
 
         // ----------------- [修改开始] -----------------
@@ -1037,7 +1223,8 @@ void trace_branch_and_bound(
 
     Node root({}, 0.0, "Root", 0.0, 0.0, 0);
     update_node_metrics(root, ST, VT, UT, h, v, D);
-    root.LB = compute_unassigned_lower_bound(root, parts, D, ST, VT, UT, h, v);
+    root.LB = compute_LBpar_LBpos(
+        root, parts, D, ST, VT, UT, L, W, l, w, h, v, best_ub);
 
     // ===== 与 branch_and_cut 完全相同的栈与出栈策略 =====
     std::deque<Node> stack;
@@ -1116,9 +1303,9 @@ void trace_branch_and_bound(
             else {
                 update_node_metrics(child, ST, VT, UT, h, v, D);
             }
-            // [修改：LBpos] 分支追踪与正式搜索保持一致，两类节点统一使用 LBpos。
-            child.LB = compute_positional_lower_bound(
-                child, parts, D, ST, VT, UT, L, W, l, w, h, v);
+            // 与正式搜索一致：两类节点统一使用 max(LBpar, LBpos)。
+            child.LB = compute_LBpar_LBpos(
+                child, parts, D, ST, VT, UT, L, W, l, w, h, v, best_ub);
 
             os << indent << "    - " << describe_child(cur, child)
                << "  => " << batches_to_string(child)

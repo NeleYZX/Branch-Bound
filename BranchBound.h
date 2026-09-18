@@ -19,8 +19,10 @@ public:
     // 每个批次对应的零件列表
     std::unordered_map<int, std::vector<int>> S;
     double LB;            // 当前节点的下界
-    double completion_time;     // 当前累计完成时间
-    double total_tardiness;     // 当前已产生总延迟
+    double completion_time;     // 当前开放批次若立即封闭时的完成时间 Cnow
+    double total_tardiness;     // 已封闭批次精确拖期 + 当前开放批次拖期下界 base
+    double closed_batches_completion_time; // 已封闭批次前缀的完成时间 tprev
+    double closed_batches_total_tardiness; // 已封闭批次前缀的精确总拖期 TTcl
     std::string name;     // 节点名称
     int depth;
     int generation_type;  // 生成类型：0=根/未知，1=Type I，2=Type II
@@ -119,7 +121,9 @@ double compute_unassigned_lower_bound(
     const std::vector<double>& VT,
     const std::vector<double>& UT,
     const std::vector<double>& h,
-    const std::vector<double>& v
+    const std::vector<double>& v,
+    double machine_area,
+    const std::vector<double>& part_areas
 );
 
 double compute_positional_lower_bound(
@@ -135,6 +139,42 @@ double compute_positional_lower_bound(
     const std::vector<double>& w,
     const std::vector<double>& h,
     const std::vector<double>& v
+);
+
+// PDF 版本的 LBpos：保留当前开放批次，只对真正未分配零件进行位置松弛。
+double compute_positional_lower_bound_relaxation(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& L,
+    const std::vector<double>& W,
+    const std::vector<double>& l,
+    const std::vector<double>& w,
+    const std::vector<double>& h,
+    const std::vector<double>& v
+);
+
+// 组合下界：保留 LBpar/LBpos 的独立接口，仅在此处负责门控与取 max。
+double compute_LBpar_LBpos(
+    const Node& node,
+    const std::vector<int>& parts,
+    const std::vector<double>& D,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& L,
+    const std::vector<double>& W,
+    const std::vector<double>& l,
+    const std::vector<double>& w,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    double UB,
+    bool use_pos = true,
+    double gamma = 0.0,
+    double positional_bound_fraction = 0.5
 );
 
 //==========================Branch and Bound========================
