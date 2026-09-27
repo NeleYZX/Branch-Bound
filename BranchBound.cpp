@@ -136,6 +136,58 @@ std::ostream& operator<<(std::ostream& os, const Node& node) {
     return os;
 }
 
+// Safe-Merge 的高频内部版本：复用 generate_children 已经解析好的父节点信息，
+// 避免对同一父节点的每个 Type-I 候选反复构造 assigned 集合和统计开放批次。
+static bool is_type1_safe_merge_dominated_precomputed(
+    const Node& parent,
+    int candidate_part,
+    const std::vector<int>& parts,
+    const std::unordered_set<int>& assigned,
+    const std::vector<int>& open_batch,
+    double open_batch_area,
+    double open_batch_volume,
+    double open_batch_height,
+    int max_open_part,
+    double machine_area,
+    const std::vector<double>& part_areas,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D,
+    double epsilon
+) {
+    if (candidate_part < 0 || open_batch.empty()) return false;
+
+    double merged_area = open_batch_area + part_areas[candidate_part];
+    double merged_volume = open_batch_volume + v[candidate_part];
+    double merged_height = std::max(open_batch_height, h[candidate_part]);
+
+    // 必须存在对应的合法 Type-II 合并分支，才能用它支配 Type-I。
+    if (candidate_part <= max_open_part || merged_area > machine_area + epsilon) {
+        return false;
+    }
+
+    // 批内编号递增规则保证：候选批次以后只能再接收编号大于 candidate_part 的零件。
+    for (int p : parts) {
+        if (p > candidate_part && assigned.find(p) == assigned.end()) {
+            merged_area += part_areas[p];
+            merged_volume += v[p];
+            merged_height = std::max(merged_height, h[p]);
+        }
+    }
+    if (merged_area > machine_area + epsilon) return false;
+
+    const double merged_completion =
+        parent.closed_batches_completion_time + ST[0] + VT[0] * merged_volume
+        + UT[0] * merged_height;
+    for (int p : open_batch) {
+        if (D[p] + epsilon < merged_completion) return false;
+    }
+    return true;
+}
+
 //=======================子节点生成（Type I & Type II）========================
 // 本函数实现 Azizoglu & Webster (2000) 的增量式分支策略：
 // 在已固定若干批次（B_1, ..., B_r，按时间先后排列）的部分调度上，
@@ -150,17 +202,26 @@ std::ostream& operator<<(std::ostream& os, const Node& node) {
 //   * 文献中针对 Type I 的支配过滤条件 (i)-(iv) 基于“批加工时间 = 批内最大 p_j”及
 //     “按 p/w 升序排批次”等性质，仅对 总加权完成时间 目标成立；
 //     在本文 P_b = S + V·Σv_j + U·max h_j 的 M-batch + 总延误 模型下这些性质不成立，
-//     故此处【不施加】(i)-(iv)，对每个未排零件无条件生成其 Type I 子节点，
-//     其作用由状态支配规则（Su 相同时比较 (TT, C)）在子节点评估阶段替代承担。
+//     故此处【不施加】(i)-(iv)。本文新增的 Safe-Merge 与相邻批次交换规则
+//     在完整 Node 构造之前过滤 Type-I 候选；其余状态再由全局状态支配规则处理。
 ChildGenerationResult generate_children(
     const Node& node,
     const std::vector<int>& parts,
     double machine_area,
-    const std::vector<double>& part_areas
+    const std::vector<double>& part_areas,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D,
+    double dominance_epsilon
 ) {
     std::unordered_set<int> assigned;
     int max_batch_id = -1;                 // 当前最后一个批次 B_r 的下标（根节点为 -1）
     double current_batch_area = 0.0;       // 当前批次 B_r 已占用的投影面积 a(B_r)
+    double current_batch_volume = 0.0;
+    double current_batch_height = 0.0;
     int max_pid_in_current_batch = -1;     // 当前批次 B_r 内零件的最大下标（用于条件 vi）
 
     // 1. 解析父节点状态：找出已排零件集合、定位当前最后批次 B_r 及其属性
@@ -173,6 +234,8 @@ ChildGenerationResult generate_children(
     if (max_batch_id >= 0) {
         for (int pid : node.S.at(max_batch_id)) {
             current_batch_area += part_areas[pid];
+            current_batch_volume += v[pid];
+            current_batch_height = std::max(current_batch_height, h[pid]);
             max_pid_in_current_batch = std::max(max_pid_in_current_batch, pid);
         }
     }
@@ -188,29 +251,53 @@ ChildGenerationResult generate_children(
 
     std::vector<Node> children;
     children.reserve(unassigned.size() * 2);
-    int pruned_count = 0;
+    long long pruned_count = 0;
+    long long safe_merge_pruned_count = 0;
+    long long interchange_pruned_count = 0;
     int child_index = 0;
+
+    // 相邻交换只依赖父节点。若成立，所有 Type-I 候选都在 Node 构造前直接删除。
+    const bool interchange_dominates_type1 =
+        is_type1_adjacent_interchange_dominated(
+            node, ST, VT, UT, h, v, D, dominance_epsilon);
 
     // ============================================================
     // 第一步（Phase 1）：生成 Type I 子节点 —— 为每个未排零件开一个新批次
     // 文献：根节点处即由此步生成 n 个“首批次只含单个零件”的子节点；
     //       一般节点处则对应“封口当前批次、另起新批次”。本模型不施加 (i)-(iv)。
     // ============================================================
-    for (int pid : unassigned) {
-        auto S_type1 = node.S;
-        S_type1[max_batch_id + 1] = { pid };   // 开新批次 B_{r+1}，仅含 pid
-        std::string name1 = node.name + "_T1_" + std::to_string(child_index++);
+    if (interchange_dominates_type1) {
+        interchange_pruned_count = static_cast<long long>(unassigned.size());
+    }
+    else {
+        const std::vector<int>* open_batch =
+            (max_batch_id >= 0) ? &node.S.at(max_batch_id) : nullptr;
+        for (int pid : unassigned) {
+            // Safe-Merge 在复制 node.S 和构造完整 Node 之前执行。
+            if (open_batch != nullptr && is_type1_safe_merge_dominated_precomputed(
+                    node, pid, parts, assigned, *open_batch,
+                    current_batch_area, current_batch_volume, current_batch_height,
+                    max_pid_in_current_batch, machine_area, part_areas,
+                    ST, VT, UT, h, v, D, dominance_epsilon)) {
+                ++safe_merge_pruned_count;
+                continue;
+            }
 
-        children.emplace_back(
-            std::move(S_type1),
-            0.0,                 // LB 由调用方稍后计算
-            name1,
-            0.0,                 // completion_time 由调用方稍后计算
-            0.0,                 // total_tardiness 同上
-            node.depth + 1,
-            1,
-            pid
-        );
+            auto S_type1 = node.S;
+            S_type1[max_batch_id + 1] = { pid };   // 开新批次 B_{r+1}，仅含 pid
+            std::string name1 = node.name + "_T1_" + std::to_string(child_index++);
+
+            children.emplace_back(
+                std::move(S_type1),
+                0.0,                 // LB 由调用方稍后计算
+                name1,
+                0.0,                 // completion_time 由调用方稍后计算
+                0.0,                 // total_tardiness 同上
+                node.depth + 1,
+                1,
+                pid
+            );
+        }
     }
 
     // ============================================================
@@ -247,7 +334,12 @@ ChildGenerationResult generate_children(
         }
     }
 
-    return { children, pruned_count };
+    return {
+        std::move(children),
+        pruned_count,
+        safe_merge_pruned_count,
+        interchange_pruned_count
+    };
 }
 
 // [删除]：移除了原有的 compute_completion_times 函数
@@ -831,6 +923,117 @@ static void update_type1_metrics_incrementally(
     child.closed_batches_total_tardiness = parent.total_tardiness;
 }
 
+//========================Type-I 局部支配规则 1：Safe-Merge========================
+// 注意：本判定依赖 generate_children 中的批内编号递增规则：candidate_part 加入后，
+// 将来还能并入该批次的零件只能来自尚未分配且编号大于 candidate_part 的零件。
+bool is_type1_safe_merge_dominated(
+    const Node& parent,
+    int candidate_part,
+    const std::vector<int>& parts,
+    double machine_area,
+    const std::vector<double>& part_areas,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D,
+    double epsilon
+) {
+    if (candidate_part < 0 || parent.S.empty()) return false;
+
+    int open_batch_id = -1;
+    std::unordered_set<int> assigned;
+    for (const auto& kv : parent.S) {
+        open_batch_id = std::max(open_batch_id, kv.first);
+        assigned.insert(kv.second.begin(), kv.second.end());
+    }
+    if (open_batch_id < 0) return false;
+
+    const std::vector<int>& open_batch = parent.S.at(open_batch_id);
+    if (open_batch.empty()) return false;
+
+    double open_batch_area = 0.0;
+    double open_batch_volume = 0.0;
+    double open_batch_height = 0.0;
+    int max_open_part = -1;
+    for (int p : open_batch) {
+        open_batch_area += part_areas[p];
+        open_batch_volume += v[p];
+        open_batch_height = std::max(open_batch_height, h[p]);
+        max_open_part = std::max(max_open_part, p);
+    }
+    return is_type1_safe_merge_dominated_precomputed(
+        parent, candidate_part, parts, assigned, open_batch,
+        open_batch_area, open_batch_volume, open_batch_height, max_open_part,
+        machine_area, part_areas, ST, VT, UT, h, v, D, epsilon);
+}
+
+//================Type-I 局部支配规则 2：相邻批次交换================
+bool is_type1_adjacent_interchange_dominated(
+    const Node& parent,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D,
+    double epsilon
+) {
+    if (parent.S.size() < 2) return false;
+
+    int current_batch_id = -1;
+    int previous_batch_id = -1;
+    for (const auto& kv : parent.S) {
+        if (kv.first > current_batch_id) {
+            previous_batch_id = current_batch_id;
+            current_batch_id = kv.first;
+        }
+        else if (kv.first > previous_batch_id) {
+            previous_batch_id = kv.first;
+        }
+    }
+    if (previous_batch_id < 0) return false;
+
+    const std::vector<int>& previous_batch = parent.S.at(previous_batch_id);
+    const std::vector<int>& current_batch = parent.S.at(current_batch_id);
+    if (previous_batch.empty() || current_batch.empty()) return false;
+
+    auto batch_processing_time = [&](const std::vector<int>& batch) {
+        double volume = 0.0;
+        double height = 0.0;
+        for (int p : batch) {
+            volume += v[p];
+            height = std::max(height, h[p]);
+        }
+        return ST[0] + VT[0] * volume + UT[0] * height;
+    };
+
+    const double previous_time = batch_processing_time(previous_batch);
+    const double current_time = batch_processing_time(current_batch);
+    // closed_batches_completion_time 是前一批次结束时刻，因此减去其加工时间即两批共同起点 tau。
+    const double tau = parent.closed_batches_completion_time - previous_time;
+
+    const double previous_completion_original = tau + previous_time;
+    const double current_completion_original = previous_completion_original + current_time;
+    const double current_completion_swapped = tau + current_time;
+    const double previous_completion_swapped = current_completion_swapped + previous_time;
+
+    double original_tardiness = 0.0;
+    double swapped_tardiness = 0.0;
+    for (int p : previous_batch) {
+        original_tardiness += std::max(0.0, previous_completion_original - D[p]);
+        swapped_tardiness += std::max(0.0, previous_completion_swapped - D[p]);
+    }
+    for (int p : current_batch) {
+        original_tardiness += std::max(0.0, current_completion_original - D[p]);
+        swapped_tardiness += std::max(0.0, current_completion_swapped - D[p]);
+    }
+
+    // 两批结束后的时间保持不变；只有交换后的局部总拖期严格更小时才剪枝。
+    return swapped_tardiness + epsilon < original_tardiness;
+}
+
 //========================PDF Proposition 3：节点状态支配========================
 // 支配比较必须同时固定：
 //   1) 已调度零件集合（等价于固定未分配集合 R）；
@@ -864,7 +1067,7 @@ static std::vector<int> build_dominance_key(const Node& node) {
 // 对同一 (R,L) 状态维护 (TTcl,tprev) 的 Pareto 前沿。
 // 历史状态若在两项上均不差，当前节点不可能得到更好的完整调度。
 // 完全相等的状态属于重复节点，也可安全删除。
-static bool dominated_or_insert(
+bool is_global_state_dominated_or_insert(
     const Node& node,
     std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash>& frontier,
     double epsilon
@@ -1051,9 +1254,16 @@ std::pair<Node, Stats> branch_and_cut(
         // 展开子节点
         // 只有当当前节点是根节点 (depth == 0) 时，才记录其子节点的名称和 LB
         bool is_root_node = (cur.depth == 0);
-        auto [kids, pruned] = generate_children(cur, parts, machine_area, part_areas);
-        stats.generated_nodes += kids.size();
-        stats.area_pruned_nodes += pruned;
+        ChildGenerationResult generation = generate_children(
+            cur, parts, machine_area, part_areas,
+            ST, VT, UT, h, v, D, dom_epsilon);
+        std::vector<Node>& kids = generation.children;
+        stats.generated_nodes += static_cast<long long>(kids.size());
+        stats.area_pruned_nodes += generation.pruned_count;
+        stats.safe_merge_pruned_nodes += generation.safe_merge_pruned_count;
+        stats.interchange_pruned_nodes += generation.interchange_pruned_count;
+        stats.pruned_nodes_per_depth[cur.depth + 1] += static_cast<int>(
+            generation.safe_merge_pruned_count + generation.interchange_pruned_count);
 
         for (auto& child : kids) {
             const bool is_type1_child = (child.generation_type == 1);
@@ -1074,7 +1284,8 @@ std::pair<Node, Stats> branch_and_cut(
             // PDF Proposition 3：Type-I 和 Type-II 子节点共用同一支配规则。
             // 相同 (R,L) 下，比较已封闭前缀的 (tprev,TTcl)，而不是包含
             // 当前开放批次暂定贡献的 (completion_time,total_tardiness)。
-            if (dominated_or_insert(child, dominance_map, dom_epsilon)) {
+            if (is_global_state_dominated_or_insert(
+                    child, dominance_map, dom_epsilon)) {
                 ++stats.dominance_pruned_nodes;
                 ++stats.pruned_nodes_per_depth[child.depth];
                 continue;
@@ -1241,6 +1452,8 @@ void trace_branch_and_bound(
     long long area_pruned_nodes = 0; // 因容量(v)被剪的 Type II 候选数
     long long LB_pruned_nodes = 0;   // 因下界被剪的节点数
     long long dominance_pruned_nodes = 0; // PDF Proposition 3 支配剪枝数
+    long long safe_merge_pruned_nodes = 0; // Type-I Safe-Merge 支配剪枝数
+    long long interchange_pruned_nodes = 0; // Type-I 相邻批次交换支配剪枝数
     long long leaf_nodes = 0;        // 到达的叶子数
     long long updated_solutions = 0; // UB 被刷新的次数
     std::map<int, int> pruned_nodes_per_depth; // 每个深度被剪枝的节点数
@@ -1323,12 +1536,20 @@ void trace_branch_and_bound(
         }
 
         // 3) 展开子节点（与 branch_and_cut 调用同一套 generate_children / 下界）
-        ChildGenerationResult res = generate_children(cur, parts, machine_area, part_areas);
+        ChildGenerationResult res = generate_children(
+            cur, parts, machine_area, part_areas,
+            ST, VT, UT, h, v, D, dominance_epsilon);
         generated_nodes += static_cast<long long>(res.children.size());
         area_pruned_nodes += res.pruned_count;
+        safe_merge_pruned_nodes += res.safe_merge_pruned_count;
+        interchange_pruned_nodes += res.interchange_pruned_count;
+        pruned_nodes_per_depth[cur.depth + 1] += static_cast<int>(
+            res.safe_merge_pruned_count + res.interchange_pruned_count);
 
         os << indent << "  生成 " << res.children.size() << " 个子节点"
-           << "（另有 " << res.pruned_count << " 个 Type II 候选因容量约束(v)被剪）:\n";
+           << "（另有 " << res.pruned_count << " 个 Type II 候选因容量约束(v)被剪，"
+           << res.safe_merge_pruned_count << " 个 Type I 候选因 Safe-Merge 被剪，"
+           << res.interchange_pruned_count << " 个 Type I 候选因相邻交换被剪）:\n";
 
         for (Node& child : res.children) {
             const bool is_type1_child = (child.generation_type == 1);
@@ -1340,7 +1561,7 @@ void trace_branch_and_bound(
             }
 
             // 与正式搜索一致：相同 (R,L) 下比较已封闭前缀 (tprev,TTcl)。
-            if (dominated_or_insert(
+            if (is_global_state_dominated_or_insert(
                     child, dominance_map, dominance_epsilon)) {
                 ++dominance_pruned_nodes;
                 ++pruned_nodes_per_depth[child.depth];
@@ -1380,6 +1601,10 @@ void trace_branch_and_bound(
     os << "  下界剪枝 LB_pruned_nodes = " << LB_pruned_nodes << "\n";
     os << "  状态支配剪枝 dominance_pruned_nodes = "
        << dominance_pruned_nodes << "\n";
+    os << "  Type-I Safe-Merge 剪枝 safe_merge_pruned_nodes = "
+       << safe_merge_pruned_nodes << "\n";
+    os << "  Type-I 相邻交换剪枝 interchange_pruned_nodes = "
+       << interchange_pruned_nodes << "\n";
     os << "  各深度被剪枝节点数 (Depth : PrunedNodes):\n";
     for (const auto& kv : pruned_nodes_per_depth) {
         os << "    深度 " << kv.first << " : " << kv.second << "\n";

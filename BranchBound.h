@@ -88,7 +88,9 @@ std::pair<BatchMap, double> generateInitialSolution(
 //=========================子节点生成==============================
 struct ChildGenerationResult {
     std::vector<Node> children;
-    int pruned_count;
+    long long pruned_count = 0; // Type-II 容量不可行候选数
+    long long safe_merge_pruned_count = 0; // 构造 Node 前被 Safe-Merge 剪掉的 Type-I 候选数
+    long long interchange_pruned_count = 0; // 构造 Node 前被相邻交换剪掉的 Type-I 候选数
 };
 
 // [修改]：取消原本的注释，并声明子节点生成函数
@@ -96,7 +98,55 @@ ChildGenerationResult generate_children(
     const Node& node,
     const std::vector<int>& parts,
     double machine_area,
-    const std::vector<double>& part_areas
+    const std::vector<double>& part_areas,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D,
+    double dominance_epsilon = 1e-9
+);
+
+// Type-I 局部支配规则 1（Safe-Merge）：
+// 若以 candidate_part 新开批次的任何后续扩展都能安全并回当前开放批次，
+// 且合并不会使当前开放批次中的零件产生拖期，则该 Type-I 分支被支配。
+bool is_type1_safe_merge_dominated(
+    const Node& parent,
+    int candidate_part,
+    const std::vector<int>& parts,
+    double machine_area,
+    const std::vector<double>& part_areas,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D,
+    double epsilon = 1e-9
+);
+
+// Type-I 局部支配规则 2（Adjacent-Batch Interchange）：
+// 若交换“前一已封闭批次”和“当前开放批次”后，两批次的局部总拖期严格下降，
+// 则保持原顺序并封闭当前批次的所有 Type-I 分支都被支配。
+bool is_type1_adjacent_interchange_dominated(
+    const Node& parent,
+    const std::vector<double>& ST,
+    const std::vector<double>& VT,
+    const std::vector<double>& UT,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D,
+    double epsilon = 1e-9
+);
+
+// 全局状态支配（PDF Proposition 3）：
+// 对相同“已调度零件集合 + 当前开放批次”的状态维护 (TTcl, tprev) Pareto 前沿。
+// 若已有状态在两项上都不差，则返回 true；否则把当前状态加入前沿并返回 false。
+bool is_global_state_dominated_or_insert(
+    const Node& node,
+    std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash>& frontier,
+    double epsilon = 1e-9
 );
 
 
@@ -188,12 +238,14 @@ struct FirstLevelNodeInfo {
 
 struct Stats {
     int updated_solutions = 0;
-    int total_nodes = 0;
-    int generated_nodes = 0;
-    int area_pruned_nodes = 0;
-    int LB_pruned_nodes = 0;
-    int U_pruned_nodes = 0;
+    long long total_nodes = 0;
+    long long generated_nodes = 0;
+    long long area_pruned_nodes = 0;
+    long long LB_pruned_nodes = 0;
+    long long U_pruned_nodes = 0;
     long long dominance_pruned_nodes = 0; // PDF Proposition 3：状态支配剪枝数
+    long long safe_merge_pruned_nodes = 0; // Type-I Safe-Merge 支配剪枝数
+    long long interchange_pruned_nodes = 0; // Type-I 相邻批次交换支配剪枝数
     int leaf_nodes = 0;
     std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
