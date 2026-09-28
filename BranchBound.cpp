@@ -254,6 +254,8 @@ ChildGenerationResult generate_children(
     long long pruned_count = 0;
     long long safe_merge_pruned_count = 0;
     long long interchange_pruned_count = 0;
+    long long exchangeable_type1_pruned_count = 0;
+    long long exchangeable_type2_pruned_count = 0;
     int child_index = 0;
 
     // 相邻交换只依赖父节点。若成立，所有 Type-I 候选都在 Node 构造前直接删除。
@@ -273,6 +275,15 @@ ChildGenerationResult generate_children(
         const std::vector<int>* open_batch =
             (max_batch_id >= 0) ? &node.S.at(max_batch_id) : nullptr;
         for (int pid : unassigned) {
+            // 同类型可交换零件支配：若更小编号、交期不晚且批处理属性不差的
+            // 未排零件可以作为 Type-I 候选，则选择 pid 新开批次的分支可删除。
+            if (is_same_type_exchangeable_part_dominated(
+                    pid, unassigned, false, max_pid_in_current_batch,
+                    part_areas, h, v, D)) {
+                ++exchangeable_type1_pruned_count;
+                continue;
+            }
+
             // Safe-Merge 在复制 node.S 和构造完整 Node 之前执行。
             if (open_batch != nullptr && is_type1_safe_merge_dominated_precomputed(
                     node, pid, parts, assigned, *open_batch,
@@ -313,6 +324,15 @@ ChildGenerationResult generate_children(
             bool index_ok = (pid > max_pid_in_current_batch);
 
             if (area_ok && index_ok) {
+                // Type-II/Type-II 可交换零件支配。支配零件还必须满足当前
+                // 开放批次的编号递增条件，确保被保留的 Type-II 兄弟真实存在。
+                if (is_same_type_exchangeable_part_dominated(
+                        pid, unassigned, true, max_pid_in_current_batch,
+                        part_areas, h, v, D)) {
+                    ++exchangeable_type2_pruned_count;
+                    continue;
+                }
+
                 auto S_type2 = node.S;
                 S_type2[max_batch_id].push_back(pid);   // 并入当前批次 B_r
                 std::string name2 = node.name + "_T2_" + std::to_string(child_index++);
@@ -338,7 +358,9 @@ ChildGenerationResult generate_children(
         std::move(children),
         pruned_count,
         safe_merge_pruned_count,
-        interchange_pruned_count
+        interchange_pruned_count,
+        exchangeable_type1_pruned_count,
+        exchangeable_type2_pruned_count
     };
 }
 
@@ -1034,7 +1056,47 @@ bool is_type1_adjacent_interchange_dominated(
     return swapped_tardiness + epsilon < original_tardiness;
 }
 
-//========================PDF Proposition 3：节点状态支配========================
+//================同类型局部支配规则 3：可交换零件================
+// 本规则同时用于 Type-I/Type-I 和 Type-II/Type-II 兄弟节点。
+// 对候选 j，若存在 i<j 且 d_i<=d_j、a_i=a_j、h_i=h_j、v_i<=v_j，
+// 则在选择 j 的任何完整方案中，i 都会位于更晚批次。交换 i、j 后：
+//   1) 两批面积和最大高度不变，容量可行性保持；
+//   2) 较早批次加工时间不增，中间批次只会提前，较晚批次及其后缀完成时间不变；
+//   3) 交期不晚的 i 被提前，因此总拖期不增。
+// 由此，选择 j 的同类型分支被选择 i 的分支支配。
+bool is_same_type_exchangeable_part_dominated(
+    int candidate_part,
+    const std::vector<int>& unassigned_parts,
+    bool is_type2_branch,
+    int max_part_in_open_batch,
+    const std::vector<double>& part_areas,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D
+) {
+    if (candidate_part < 0) return false;
+
+    for (int preferred_part : unassigned_parts) {
+        // i<j 是证明所必需的：选择 j 后，编号更小的 i 不能再进入该开放批次。
+        if (preferred_part >= candidate_part) continue;
+
+        // 对 Type II，支配零件 i 本身也必须能通过编号规则加入当前开放批次。
+        // 面积相等保证：既然候选 j 容量可行，则 i 也容量可行。
+        if (is_type2_branch && preferred_part <= max_part_in_open_batch) continue;
+
+        // 面积和高度使用精确相等，避免把浮点容差误当作数学等价而破坏可行性。
+        if (part_areas[preferred_part] != part_areas[candidate_part]) continue;
+        if (h[preferred_part] != h[candidate_part]) continue;
+
+        if (v[preferred_part] > v[candidate_part]) continue;
+        if (D[preferred_part] > D[candidate_part]) continue;
+
+        return true;
+    }
+    return false;
+}
+
+//========================强化全局节点状态支配========================
 // 支配比较必须同时固定：
 //   1) 已调度零件集合（等价于固定未分配集合 R）；
 //   2) 当前开放批次 L 的零件集合。
@@ -1064,12 +1126,15 @@ static std::vector<int> build_dominance_key(const Node& node) {
     return key;
 }
 
-// 对同一 (R,L) 状态维护 (TTcl,tprev) 的 Pareto 前沿。
-// 历史状态若在两项上均不差，当前节点不可能得到更好的完整调度。
-// 完全相等的状态属于重复节点，也可安全删除。
+// 对同一 (R,L) 状态维护 (TTcl,tprev) 的强化支配前沿。
+// 若状态 A 比 B 晚 Delta，则复制相同后续决策时，每个尚未封闭零件的
+// 完成时间增加 Delta，而单个零件的拖期增量至多为 Delta。因此，若
+// TTcl_A + m*max(0,tprev_A-tprev_B) <= TTcl_B，则 A 仍然支配 B。
+// 原来的分量式 Pareto 支配是该判定在 tprev_A<=tprev_B 时的特例。
 bool is_global_state_dominated_or_insert(
     const Node& node,
     std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash>& frontier,
+    std::size_t total_part_count,
     double epsilon
 ) {
     const std::vector<int> key = build_dominance_key(node);
@@ -1077,9 +1142,30 @@ bool is_global_state_dominated_or_insert(
     const double closed_time = node.closed_batches_completion_time;
     const double closed_tardiness = node.closed_batches_total_tardiness;
 
+    std::size_t scheduled_count = 0;
+    std::size_t open_batch_count = 0;
+    int open_batch_id = -1;
+    for (const auto& kv : node.S) {
+        scheduled_count += kv.second.size();
+        open_batch_id = std::max(open_batch_id, kv.first);
+    }
+    if (open_batch_id >= 0) {
+        open_batch_count = node.S.at(open_batch_id).size();
+    }
+
+    // 未最终封闭的零件 = 当前开放批次零件 + 尚未调度零件。
+    // 同一 dominance key 下该数量固定，因此所有前沿状态使用同一个 m。
+    const std::size_t unscheduled_count =
+        (total_part_count >= scheduled_count)
+        ? total_part_count - scheduled_count
+        : 0;
+    const double unfinished_count = static_cast<double>(
+        open_batch_count + unscheduled_count);
+
     for (const StateMetric& old : pareto) {
-        if (old.c <= closed_time + epsilon &&
-            old.tt <= closed_tardiness + epsilon) {
+        const double old_lateness_penalty =
+            unfinished_count * std::max(0.0, old.c - closed_time);
+        if (old.tt + old_lateness_penalty <= closed_tardiness + epsilon) {
             return true;
         }
     }
@@ -1088,8 +1174,10 @@ bool is_global_state_dominated_or_insert(
         std::remove_if(
             pareto.begin(), pareto.end(),
             [&](const StateMetric& old) {
-                return closed_time <= old.c + epsilon &&
-                       closed_tardiness <= old.tt + epsilon;
+                const double current_lateness_penalty =
+                    unfinished_count * std::max(0.0, closed_time - old.c);
+                return closed_tardiness + current_lateness_penalty
+                    <= old.tt + epsilon;
             }),
         pareto.end());
     pareto.push_back({ closed_tardiness, closed_time });
@@ -1122,8 +1210,8 @@ std::pair<Node, Stats> branch_and_cut(
     reset_dp_memo_stats();
     clear_global_dp_cache(); // 【新增】清空上一轮实验留下的哈希表
 
-    // PDF Proposition 3 支配表：key=(已调度集合, 当前开放批次)，
-    // value 为已封闭前缀 (TTcl,tprev) 的 Pareto 前沿。
+    // 强化全局支配表：key=(已调度集合, 当前开放批次)，value 保存已封闭
+    // 前缀 (TTcl,tprev) 的非支配状态，并用 m*Delta 补偿较晚的前缀时间。
     std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash> dominance_map;
 
 
@@ -1262,8 +1350,15 @@ std::pair<Node, Stats> branch_and_cut(
         stats.area_pruned_nodes += generation.pruned_count;
         stats.safe_merge_pruned_nodes += generation.safe_merge_pruned_count;
         stats.interchange_pruned_nodes += generation.interchange_pruned_count;
+        stats.exchangeable_type1_pruned_nodes +=
+            generation.exchangeable_type1_pruned_count;
+        stats.exchangeable_type2_pruned_nodes +=
+            generation.exchangeable_type2_pruned_count;
         stats.pruned_nodes_per_depth[cur.depth + 1] += static_cast<int>(
-            generation.safe_merge_pruned_count + generation.interchange_pruned_count);
+            generation.safe_merge_pruned_count
+            + generation.interchange_pruned_count
+            + generation.exchangeable_type1_pruned_count
+            + generation.exchangeable_type2_pruned_count);
 
         for (auto& child : kids) {
             const bool is_type1_child = (child.generation_type == 1);
@@ -1281,11 +1376,11 @@ std::pair<Node, Stats> branch_and_cut(
                 continue;
             }
 
-            // PDF Proposition 3：Type-I 和 Type-II 子节点共用同一支配规则。
-            // 相同 (R,L) 下，比较已封闭前缀的 (tprev,TTcl)，而不是包含
-            // 当前开放批次暂定贡献的 (completion_time,total_tardiness)。
+            // 强化全局支配：Type-I 和 Type-II 子节点共用同一规则。
+            // 相同 (R,L) 下比较已封闭前缀；若旧状态更晚，则用尚未封闭
+            // 零件数乘时间差，补偿其未来拖期的最坏增量。
             if (is_global_state_dominated_or_insert(
-                    child, dominance_map, dom_epsilon)) {
+                    child, dominance_map, parts.size(), dom_epsilon)) {
                 ++stats.dominance_pruned_nodes;
                 ++stats.pruned_nodes_per_depth[child.depth];
                 continue;
@@ -1451,9 +1546,11 @@ void trace_branch_and_bound(
     long long generated_nodes = 0;   // 生成的子节点数
     long long area_pruned_nodes = 0; // 因容量(v)被剪的 Type II 候选数
     long long LB_pruned_nodes = 0;   // 因下界被剪的节点数
-    long long dominance_pruned_nodes = 0; // PDF Proposition 3 支配剪枝数
+    long long dominance_pruned_nodes = 0; // 强化全局状态支配剪枝数
     long long safe_merge_pruned_nodes = 0; // Type-I Safe-Merge 支配剪枝数
     long long interchange_pruned_nodes = 0; // Type-I 相邻批次交换支配剪枝数
+    long long exchangeable_type1_pruned_nodes = 0; // Type-I/Type-I 可交换零件剪枝数
+    long long exchangeable_type2_pruned_nodes = 0; // Type-II/Type-II 可交换零件剪枝数
     long long leaf_nodes = 0;        // 到达的叶子数
     long long updated_solutions = 0; // UB 被刷新的次数
     std::map<int, int> pruned_nodes_per_depth; // 每个深度被剪枝的节点数
@@ -1543,13 +1640,20 @@ void trace_branch_and_bound(
         area_pruned_nodes += res.pruned_count;
         safe_merge_pruned_nodes += res.safe_merge_pruned_count;
         interchange_pruned_nodes += res.interchange_pruned_count;
+        exchangeable_type1_pruned_nodes += res.exchangeable_type1_pruned_count;
+        exchangeable_type2_pruned_nodes += res.exchangeable_type2_pruned_count;
         pruned_nodes_per_depth[cur.depth + 1] += static_cast<int>(
-            res.safe_merge_pruned_count + res.interchange_pruned_count);
+            res.safe_merge_pruned_count
+            + res.interchange_pruned_count
+            + res.exchangeable_type1_pruned_count
+            + res.exchangeable_type2_pruned_count);
 
         os << indent << "  生成 " << res.children.size() << " 个子节点"
            << "（另有 " << res.pruned_count << " 个 Type II 候选因容量约束(v)被剪，"
            << res.safe_merge_pruned_count << " 个 Type I 候选因 Safe-Merge 被剪，"
-           << res.interchange_pruned_count << " 个 Type I 候选因相邻交换被剪）:\n";
+           << res.interchange_pruned_count << " 个 Type I 候选因相邻交换被剪，"
+           << res.exchangeable_type1_pruned_count << " 个 Type I 候选因可交换零件被剪，"
+           << res.exchangeable_type2_pruned_count << " 个 Type II 候选因可交换零件被剪）:\n";
 
         for (Node& child : res.children) {
             const bool is_type1_child = (child.generation_type == 1);
@@ -1562,12 +1666,12 @@ void trace_branch_and_bound(
 
             // 与正式搜索一致：相同 (R,L) 下比较已封闭前缀 (tprev,TTcl)。
             if (is_global_state_dominated_or_insert(
-                    child, dominance_map, dominance_epsilon)) {
+                    child, dominance_map, parts.size(), dominance_epsilon)) {
                 ++dominance_pruned_nodes;
                 ++pruned_nodes_per_depth[child.depth];
                 os << indent << "    - " << describe_child(cur, child)
-                   << "  [状态支配剪枝：相同未分配集合与开放批次下，"
-                      "已有节点的 tprev/TTcl 均不大]\n";
+                   << "  [强化状态支配剪枝：相同未分配集合与开放批次下，"
+                      "已有节点的 TTcl 加最坏时间差补偿后仍不大]\n";
                 continue;
             }
             // 与正式搜索一致：两类节点统一使用 max(LBpar, LBpos)。
@@ -1605,6 +1709,10 @@ void trace_branch_and_bound(
        << safe_merge_pruned_nodes << "\n";
     os << "  Type-I 相邻交换剪枝 interchange_pruned_nodes = "
        << interchange_pruned_nodes << "\n";
+    os << "  Type-I/Type-I 可交换零件剪枝 exchangeable_type1_pruned_nodes = "
+       << exchangeable_type1_pruned_nodes << "\n";
+    os << "  Type-II/Type-II 可交换零件剪枝 exchangeable_type2_pruned_nodes = "
+       << exchangeable_type2_pruned_nodes << "\n";
     os << "  各深度被剪枝节点数 (Depth : PrunedNodes):\n";
     for (const auto& kv : pruned_nodes_per_depth) {
         os << "    深度 " << kv.first << " : " << kv.second << "\n";

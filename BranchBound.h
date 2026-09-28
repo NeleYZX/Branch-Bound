@@ -50,8 +50,8 @@ public:
 
 //========================= 支配规则辅助结构 =========================
 struct StateMetric {
-    double tt; // 已封闭批次的精确总拖期 TTcl
-    double c;  // 已封闭批次前缀的完成时间 tprev
+    double tt; // 已封闭批次的精确总拖期 TTcl（强化支配前沿指标）
+    double c;  // 已封闭批次前缀完成时间 tprev（时间差按 m*Delta 补偿）
 };
 
 // 用于让 std::vector<int> 能作为 std::unordered_map 的 key
@@ -91,6 +91,8 @@ struct ChildGenerationResult {
     long long pruned_count = 0; // Type-II 容量不可行候选数
     long long safe_merge_pruned_count = 0; // 构造 Node 前被 Safe-Merge 剪掉的 Type-I 候选数
     long long interchange_pruned_count = 0; // 构造 Node 前被相邻交换剪掉的 Type-I 候选数
+    long long exchangeable_type1_pruned_count = 0; // 可交换零件规则剪掉的 Type-I 候选数
+    long long exchangeable_type2_pruned_count = 0; // 可交换零件规则剪掉的 Type-II 候选数
 };
 
 // [修改]：取消原本的注释，并声明子节点生成函数
@@ -140,12 +142,28 @@ bool is_type1_adjacent_interchange_dominated(
     double epsilon = 1e-9
 );
 
-// 全局状态支配（PDF Proposition 3）：
-// 对相同“已调度零件集合 + 当前开放批次”的状态维护 (TTcl, tprev) Pareto 前沿。
-// 若已有状态在两项上都不差，则返回 true；否则把当前状态加入前沿并返回 false。
+// 同类型可交换零件支配（Type-I/Type-I 与 Type-II/Type-II）：
+// 若存在未排零件 i<j，满足 d_i<=d_j、a_i=a_j、h_i=h_j、v_i<=v_j，
+// 且 i 对当前分支类型同样可选，则选择 j 的同类型分支被选择 i 的分支支配。
+// is_type2_branch=true 时还会检查 i 是否满足当前开放批次的编号递增条件。
+bool is_same_type_exchangeable_part_dominated(
+    int candidate_part,
+    const std::vector<int>& unassigned_parts,
+    bool is_type2_branch,
+    int max_part_in_open_batch,
+    const std::vector<double>& part_areas,
+    const std::vector<double>& h,
+    const std::vector<double>& v,
+    const std::vector<double>& D
+);
+
+// 强化全局状态支配：对相同“已调度零件集合 + 当前开放批次”的状态，
+// 若旧状态满足 TTcl_old + m*max(0,tprev_old-tprev_new) <= TTcl_new，
+// 则旧状态支配新状态；m 为当前开放批次与未调度零件的总数。
 bool is_global_state_dominated_or_insert(
     const Node& node,
     std::unordered_map<std::vector<int>, std::vector<StateMetric>, VectorHash>& frontier,
+    std::size_t total_part_count,
     double epsilon = 1e-9
 );
 
@@ -243,9 +261,11 @@ struct Stats {
     long long area_pruned_nodes = 0;
     long long LB_pruned_nodes = 0;
     long long U_pruned_nodes = 0;
-    long long dominance_pruned_nodes = 0; // PDF Proposition 3：状态支配剪枝数
+    long long dominance_pruned_nodes = 0; // 强化全局状态支配剪枝数
     long long safe_merge_pruned_nodes = 0; // Type-I Safe-Merge 支配剪枝数
     long long interchange_pruned_nodes = 0; // Type-I 相邻批次交换支配剪枝数
+    long long exchangeable_type1_pruned_nodes = 0; // Type-I/Type-I 可交换零件支配剪枝数
+    long long exchangeable_type2_pruned_nodes = 0; // Type-II/Type-II 可交换零件支配剪枝数
     int leaf_nodes = 0;
     std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
