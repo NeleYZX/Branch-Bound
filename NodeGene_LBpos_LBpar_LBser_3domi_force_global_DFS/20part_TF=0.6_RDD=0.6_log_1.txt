@@ -1,0 +1,68 @@
+锘縈achine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 1: 12.000000 x 12.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 2: 7.000000 x 4.000000 x 2.000000, Vol = 20.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 4: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
+  Part 5: 10.000000 x 9.000000 x 7.000000, Vol = 76.000000, Support = 0.000000
+  Part 6: 5.000000 x 5.000000 x 5.000000, Vol = 90.000000, Support = 0.000000
+  Part 7: 5.000000 x 5.000000 x 2.000000, Vol = 13.700000, Support = 0.000000
+  Part 8: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 9: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
+  Part 10: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 11: 8.000000 x 6.000000 x 7.000000, Vol = 38.000000, Support = 0.000000
+  Part 12: 5.000000 x 5.000000 x 5.000000, Vol = 110.000000, Support = 0.000000
+  Part 13: 7.000000 x 7.000000 x 3.000000, Vol = 60.000000, Support = 0.000000
+  Part 14: 4.000000 x 4.000000 x 12.000000, Vol = 100.000000, Support = 0.000000
+  Part 15: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 16: 7.000000 x 7.000000 x 5.000000, Vol = 27.500000, Support = 0.000000
+  Part 17: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
+  Part 18: 8.000000 x 8.000000 x 5.000000, Vol = 75.000000, Support = 0.000000
+  Part 19: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+
+The total tardiness:462.848470
+
+============== Start Branch and Cut Search ==============
+
+Node selection strategy: DFS (LIFO)
+Lower-bound fractions: position=0.500000, serial=0.300000
+上下界记录已导出至: NodeGene_LBpos_LBpar_LBser_3domi_force_global_DFS/20part_TF=0.6_RDD=0.6_log_1_bounds.csv
+
+=============== Best Solution ===============
+Node(Root_T1_6_T2_13_T2_21_T2_16_T2_14_T2_13_T2_12_T1_1_T2_10_T2_9_T2_9_T2_8_T2_7_T1_1_T2_3_T2_4_T2_3_T1_1_T2_2_T1_0):
+  LB = 214.067
+  S = {
+    Batch 0: [6, 7, 13, 15, 16, 17, 18]
+    Batch 1: [1, 5, 8, 10, 11, 12]
+    Batch 2: [2, 3, 14, 19]
+    Batch 3: [4, 9]
+    Batch 4: [0]
+  }
+============= The search Info =============
+The handled total nodes(pop):313553368
+The number of generated nodes:1601123565
+The number of leaf nodes:116
+The times of updated best solution:116
+pruned times-Area:126179244
+pruned times-LB:275926481
+pruned times-Infeasible:0
+safe_merge_pruned_count:13082990
+interchange_pruned_count:1511458919
+exchangeable_type1_pruned_count:196465792
+exchangeable_type2_pruned_count:19349795
+total_V_calls:4440134
+local_memo_hits :1065758
+global_memo_hits:2295011
+computed_states :1079365
+serial_dp_trigger_count:1068684
+delta_trigger_count :0
+serial_pruning_count :99623
+serial_missing_count :0
+time:3648.769000s
