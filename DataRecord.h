@@ -17,7 +17,8 @@
 
 //=======================文档数据记录====================
 // 获取日志文件名（避免覆盖）
-std::string get_log_filename(const std::string& input_filename);
+std::string get_log_filename(const std::string& input_filename,
+    const std::string& result_subfolder = "");
 
 // 全局日志输出对象
 extern std::ofstream log_stream;
