@@ -5,6 +5,9 @@
 #include <iostream>
 #include <sstream>
 
+// Debug arguments are discarded; formal DP counters remain enabled.
+#define DP_DEBUG(...) ((void)0)
+
 // =================== 全局统计量定义（新增） ======================
 DPMemoStats dp_memo_stats = { 0, 0, 0, 0 };
 
@@ -36,7 +39,7 @@ void clear_global_dp_cache() {
     //     SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
     // #endif
 
-    print_debug_info("Global DP Cache Completely Freed (Memory Released).");
+    DP_DEBUG("Global DP Cache Completely Freed (Memory Released).");
 }
 
 // =================== 全局变量定义（和原来一致） ======================
@@ -181,7 +184,7 @@ static DPResult lookup_dp_result(
 // 动态规划核心函数实现 (V 函数签名不变)
 DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
     SubsetKey current_key(subset_indices_in_all_jobs, t);
-    print_debug_info("进入 V(" + current_key.to_string() + ")");
+    DP_DEBUG("进入 V(" + current_key.to_string() + ")");
 
     ++dp_memo_stats.total_V_calls;
 
@@ -197,7 +200,7 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
     if (memo.count(current_key)) {
         // 统计：本地 memo 命中
         ++dp_memo_stats.local_memo_hits;
-        print_debug_info("  -> 本地 memo 命中");
+        DP_DEBUG("  -> 本地 memo 命中");
         return memo[current_key];
     }
 
@@ -206,7 +209,7 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
     if (it_global != global_memo.end()) {
         // 统计：全局缓存命中（这是跨调用/跨节点复用）
         ++dp_memo_stats.global_memo_hits;
-        print_debug_info("  -> 全局 global_memo 命中");
+        DP_DEBUG("  -> 全局 global_memo 命中");
         memo[current_key] = it_global->second; // 为当前调用补一份
         return it_global->second;
     }
@@ -218,7 +221,7 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
 
     // 初始条件：空集
     if (subset_indices_in_all_jobs.empty()) {
-        print_debug_info("  -> 集合为空，返回 {Tardiness: 0.0, Delta: -1}");
+        DP_DEBUG("  -> 集合为空，返回 {Tardiness: 0.0, Delta: -1}");
         DPResult res(0.0, -1);
         memo[current_key] = res;
         global_memo[gkey] = res;
@@ -288,7 +291,7 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
 
         double total_val = result_first_part.min_tardiness + current_tardiness_k_prime + result_third_part.min_tardiness;
 
-        print_debug_info("  δ=" + std::to_string(delta) + ": Ck'(" + std::to_string(delta) + ")=" + std::to_string(completion_k_prime_delta) +
+        DP_DEBUG("  δ=" + std::to_string(delta) + ": Ck'(" + std::to_string(delta) + ")=" + std::to_string(completion_k_prime_delta) +
             ", T(k')=" + std::to_string(current_tardiness_k_prime) +
             ", V_first=" + std::to_string(result_first_part.min_tardiness) +
             ", V_third=" + std::to_string(result_third_part.min_tardiness) +
@@ -300,7 +303,7 @@ DPResult V(const std::vector<int>& subset_indices_in_all_jobs, double t) {
         }
     }
 
-    print_debug_info("  -> V(" + current_key.to_string() + ") 计算完成，结果: {Tardiness: " + std::to_string(min_total_tardiness) + ", Delta: " + std::to_string(best_delta_for_current_key) + "}");
+    DP_DEBUG("  -> V(" + current_key.to_string() + ") 计算完成，结果: {Tardiness: " + std::to_string(min_total_tardiness) + ", Delta: " + std::to_string(best_delta_for_current_key) + "}");
     DPResult res(min_total_tardiness, best_delta_for_current_key);
     memo[current_key] = res;
     global_memo[gkey] = res;

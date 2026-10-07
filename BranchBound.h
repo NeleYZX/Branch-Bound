@@ -31,7 +31,7 @@ public:
     Node();
     Node(const std::unordered_map<int, std::vector<int>>& S_,
         double LB_,
-        const std::string& name_ = "N",
+        const std::string& name_ = "",
         double completion_time_ = 0.0,
         double total_tardiness_ = 0.0,
         int depth_ = 0,
@@ -107,7 +107,8 @@ ChildGenerationResult generate_children(
     const std::vector<double>& h,
     const std::vector<double>& v,
     const std::vector<double>& D,
-    double dominance_epsilon = 1e-9
+    double dominance_epsilon = 1e-9,
+    bool record_node_names = false // 正式搜索不命名，追踪模式显式开启
 );
 
 // Type-I 局部支配规则 1（Safe-Merge）：
@@ -256,13 +257,7 @@ double compute_LBpar_LBpos(
 );
 
 //==========================Branch and Bound========================
-struct FirstLevelNodeInfo {
-    std::string name;
-    double lb;
-    double completion_time;
-    int unassigned_count;
-    std::vector<int> unassigned_parts; // 存储未分配零件的 ID
-};
+
 
 struct Stats {
     int updated_solutions = 0;
@@ -280,9 +275,6 @@ struct Stats {
     std::unordered_map<int, int> pruned_nodes_per_depth;     //每个深度被剪枝的节点数
     std::vector<std::pair<double, double>> UB_updates;       // <时间戳, 新UB>
     std::vector<std::pair<double, double>> LB_convergence;   // <时间戳, 当前最小LB>
-    // [新增] 替换原来的 pair vector，或者新增这个详细信息的 vector
-    std::vector<FirstLevelNodeInfo> first_level_details;
-    std::vector<std::pair<std::string, double>> first_level_node_lbs; // 新增：存储第一层子节点的名称和LB
     long long total_V_calls = 0;       // V() 被调用的总次数
     long long local_memo_hits = 0;     // 命中本次调用的 memo（SubsetKey）的次数
     long long global_memo_hits = 0;    // 命中全局 global_memo 的次数（跨调用复用）
@@ -321,7 +313,8 @@ std::pair<Node, Stats> branch_and_cut(
     const std::string& path,
     NodeSelectionStrategy strategy = NodeSelectionStrategy::Hybrid,
     double positional_bound_fraction = 0.50,
-    double serial_remaining_fraction = 0.30
+    double serial_remaining_fraction = 0.30,
+    bool record_bound_history = true
 );
 
 //==========================分支过程追踪（教学/调试用）========================
