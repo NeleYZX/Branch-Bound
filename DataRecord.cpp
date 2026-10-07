@@ -8,7 +8,7 @@ std::ofstream log_stream;
 
 std::string get_log_filename(const std::string& input_filename, const std::string& result_subfolder) {
     std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = "Journal article/Tuning_LBpos_LBpar_LBser_3domi_global/";
+    std::string log_dir = "Journal article/BB_Basic/";
     if (!result_subfolder.empty()) {
         log_dir = (fs::path(log_dir) / result_subfolder).string() + "/";
     }
