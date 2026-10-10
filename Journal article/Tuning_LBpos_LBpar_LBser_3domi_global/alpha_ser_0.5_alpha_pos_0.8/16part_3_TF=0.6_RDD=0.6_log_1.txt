@@ -1,0 +1,65 @@
+锘縜lpha_ser=0.500000, alpha_pos=0.800000
+Machine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 13.000000 x 13.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 1: 7.000000 x 5.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 2: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 3: 7.000000 x 7.000000 x 2.000000, Vol = 45.000000, Support = 0.000000
+  Part 4: 8.000000 x 8.000000 x 8.000000, Vol = 340.000000, Support = 0.000000
+  Part 5: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 6: 8.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 7: 13.000000 x 13.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 8: 11.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 9: 10.000000 x 4.000000 x 1.000000, Vol = 30.000000, Support = 0.000000
+  Part 10: 6.000000 x 5.000000 x 5.000000, Vol = 110.000000, Support = 0.000000
+  Part 11: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
+  Part 12: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 13: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 14: 5.000000 x 5.000000 x 5.000000, Vol = 90.000000, Support = 0.000000
+  Part 15: 5.000000 x 4.000000 x 7.000000, Vol = 38.000000, Support = 0.000000
+
+The total tardiness:439.712789
+
+============== Start Branch and Cut Search ==============
+
+Node selection strategy: Hybrid (Best-first + DFS)
+Lower-bound fractions: position=0.800000, serial=0.500000
+上下界记录已导出至: Journal article/Tuning_LBpos_LBpar_LBser_3domi_global/alpha_ser_0.5_alpha_pos_0.8/16part_3_TF=0.6_RDD=0.6_log_1_bounds.csv
+
+=============== Best Solution ===============
+Solution:
+  LB = 174.47
+  S = {
+    Batch 0: [0, 3, 13, 15]
+    Batch 1: [1, 6, 8, 9, 10, 11, 14]
+    Batch 2: [2, 4, 7]
+    Batch 3: [5, 12]
+  }
+============= The search Info =============
+The handled total nodes(pop):2923177
+The number of generated nodes:16188139
+The number of leaf nodes:64
+The times of updated best solution:64
+pruned times-Area:1488611
+pruned times-LB:4387447
+pruned times-Infeasible:0
+safe_merge_pruned_count:682875
+interchange_pruned_count:10171723
+exchangeable_type1_pruned_count:1831765
+exchangeable_type2_pruned_count:207109
+total_V_calls:15694312
+local_memo_hits :4837116
+global_memo_hits:7931000
+computed_states :2926196
+serial_dp_trigger_count:2382912
+delta_trigger_count :0
+serial_pruning_count :742264
+serial_missing_count :0
+search_time_seconds:71.330108
+time:71.409000s
