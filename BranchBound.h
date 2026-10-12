@@ -260,6 +260,12 @@ double compute_LBpar_LBpos(
 
 
 struct Stats {
+    bool proven_optimal = false;
+    double solve_time_seconds = 0.0; // Search only; excludes previous-cache release and destructors.
+    double final_ub = 0.0;
+    double final_lb = 0.0;
+    double relative_gap = 0.0; // Fraction: (UB-LB)/abs(UB); zero when proven optimal.
+
     int updated_solutions = 0;
     long long total_nodes = 0;
     long long generated_nodes = 0;
