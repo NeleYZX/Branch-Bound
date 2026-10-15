@@ -1,0 +1,78 @@
+锘縜lpha_ser=0.800000, alpha_pos=1.000000
+Machine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 13.000000 x 13.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 1: 7.000000 x 5.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 2: 7.000000 x 7.000000 x 2.000000, Vol = 45.000000, Support = 0.000000
+  Part 3: 11.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 4: 5.000000 x 4.000000 x 5.000000, Vol = 100.000000, Support = 0.000000
+  Part 5: 8.000000 x 8.000000 x 8.000000, Vol = 340.000000, Support = 0.000000
+  Part 6: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 7: 6.000000 x 3.000000 x 1.000000, Vol = 15.000000, Support = 0.000000
+  Part 8: 13.000000 x 13.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 9: 11.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 10: 10.000000 x 4.000000 x 1.000000, Vol = 30.000000, Support = 0.000000
+  Part 11: 6.000000 x 3.000000 x 32.000000, Vol = 200.000000, Support = 0.000000
+  Part 12: 6.000000 x 5.000000 x 5.000000, Vol = 110.000000, Support = 0.000000
+  Part 13: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
+  Part 14: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 15: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 16: 8.000000 x 8.000000 x 8.000000, Vol = 340.000000, Support = 0.000000
+  Part 17: 6.000000 x 6.000000 x 4.000000, Vol = 9.600000, Support = 0.000000
+  Part 18: 5.000000 x 5.000000 x 5.000000, Vol = 90.000000, Support = 0.000000
+  Part 19: 5.000000 x 4.000000 x 7.000000, Vol = 38.000000, Support = 0.000000
+
+The total tardiness:441.070173
+
+============== Start Branch and Cut Search ==============
+
+Node selection strategy: Hybrid (Best-first + DFS)
+Lower-bound fractions: position=1.000000, serial=0.800000
+上下界记录已导出至: Journal article/Tuning_LBpos_LBpar_LBser_3domi_global/alpha_ser_0.8_alpha_pos_1.0/20part_1_TF=0.6_RDD=0.6_log_1_bounds.csv
+
+solve_status:TIME_LIMIT
+final_UB:221.013347
+final_LB:17.122125
+MIP_gap:0.922529
+MIP_gap_percent:92.252900
+optimal_time_seconds:NA
+
+=============== Best Solution ===============
+Solution:
+  LB = 221.013
+  S = {
+    Batch 0: [3, 4, 7, 10, 12, 17]
+    Batch 1: [0, 2, 9, 13, 18, 19]
+    Batch 2: [1, 5, 8, 14, 16]
+    Batch 3: [6, 15]
+    Batch 4: [11]
+  }
+============= The search Info =============
+The handled total nodes(pop):77469706
+The number of generated nodes:422908494
+The number of leaf nodes:83
+The times of updated best solution:83
+pruned times-Area:57923925
+pruned times-LB:109874682
+pruned times-Infeasible:0
+safe_merge_pruned_count:5566528
+interchange_pruned_count:358530988
+exchangeable_type1_pruned_count:4921203
+exchangeable_type2_pruned_count:0
+total_V_calls:473062248
+local_memo_hits :145400582
+global_memo_hits:245883810
+computed_states :81777856
+serial_dp_trigger_count:65018860
+delta_trigger_count :0
+serial_pruning_count :23573153
+serial_missing_count :0
+search_time_seconds:3600.002643
+solver_call_seconds:3967.795840
+time:3967.861000s
