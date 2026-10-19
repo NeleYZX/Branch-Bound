@@ -1,0 +1,53 @@
+﻿Full factorial DOE analysis — lexicographic gap-aware RDI
+==================================================================
+Ranking rule: OPTIMAL first (ordered by search time), then TIME_LIMIT (ordered by MIP gap).
+Gap-aware RDI = normalized within-instance lexicographic rank in [0,1].
+Instance key = (n_parts, instance_id)
+Number of observations: 144 | Number of instance blocks: 9
+Factor levels: alpha_ser=[0.0, 0.2, 0.5, 0.8] | alpha_pos=[0.2, 0.5, 0.8, 1.0]
+Solve statuses: {'OPTIMAL': 105, 'TIME_LIMIT': 39}
+
+Two-factor ANOVA with instance fixed effects:
+Effect                                df           F              p         partial_eta2
+Instance block                        8      0.0210448       0.999998       0.00140102
+alpha_ser                             3        41.6891     1.56777e-18         0.510339
+alpha_pos                             3        19.3045     2.79293e-10         0.325515
+alpha_ser × alpha_pos                 9       0.856338       0.566199        0.0603494
+
+Exploratory size-moderation ANOVA (instances nested in size):
+Size × alpha_ser: F(6, 90)=4.19232, p=0.000918491
+Size × alpha_pos: F(6, 90)=5.63529, p=5.28649e-05
+Size × alpha_ser × alpha_pos: F(18, 90)=0.599777, p=0.891004
+
+Friedman across 16 treatments and 9 blocks: chi2=83.1282, p=1.86287e-11
+Shapiro-Wilk p for primary-model residuals: 0.0174823
+
+Mean gap-aware RDI by combination (ascending; wins out of 9 blocks):
+  ser=0.0, pos=0.2: mean=0.0524, median=0.0000, best=6/9
+  ser=0.2, pos=0.2: mean=0.1188, median=0.0667, best=1/9
+  ser=0.0, pos=0.5: mean=0.1980, median=0.1379, best=0/9
+  ser=0.2, pos=0.5: mean=0.3139, median=0.3333, best=0/9
+  ser=0.0, pos=1.0: mean=0.4079, median=0.4000, best=0/9
+  ser=0.2, pos=1.0: mean=0.4079, median=0.4000, best=1/9
+  ser=0.5, pos=0.2: mean=0.4107, median=0.3333, best=0/9
+  ser=0.0, pos=0.8: mean=0.4393, median=0.4000, best=1/9
+  ser=0.5, pos=1.0: mean=0.6156, median=0.6667, best=0/9
+  ser=0.2, pos=0.8: mean=0.6202, median=0.6667, best=0/9
+  ser=0.5, pos=0.5: mean=0.6263, median=0.6897, best=0/9
+  ser=0.8, pos=0.2: mean=0.6554, median=0.6667, best=0/9
+  ser=0.8, pos=0.5: mean=0.7599, median=0.8000, best=0/9
+  ser=0.5, pos=0.8: mean=0.7755, median=0.8000, best=0/9
+  ser=0.8, pos=1.0: mean=0.7957, median=0.8276, best=0/9
+  ser=0.8, pos=0.8: mean=0.8639, median=1.0000, best=0/9
+
+Interpretation notes:
+- Each (n_parts, instance_id) forms one block; sixteen parameter configurations per block.
+- The size main effect is subsumed in the instance fixed-effect blocks.
+- All OPTIMAL runs outrank every TIME_LIMIT run within the same instance.
+- Search time is used only for OPTIMAL runs; MIP gap is used only for TIME_LIMIT runs.
+- The gap-aware RDI is rank-based, so it preserves ordering rather than the magnitude of time or gap differences.
+- Normal-error ANOVA p-values are approximate; the Friedman test cross-checks overall treatment differences.
+- Each instance-by-configuration cell contains one CPU time; no independent stochastic repetitions are present.
+- Statistical significance does not prove a configuration is uniformly fastest across sizes.
+- Higher-order effects by size are exploratory with only 3 instances per size.
+- The data do not contain independent repeated solver seeds for a given instance/configuration.

@@ -1,0 +1,29 @@
+{
+  "source": "Journal article\\Tuning_LBpos_LBpar_LBser_3domi_global\\experiment_summary.csv",
+  "input_rows_selected": 36,
+  "blocks": 9,
+  "alpha_ser_fixed": 0.0,
+  "alpha_pos_levels": [
+    0.0,
+    0.2,
+    0.5,
+    0.8
+  ],
+  "solve_status_counts": {
+    "OPTIMAL": 29,
+    "TIME_LIMIT": 7
+  },
+  "friedman_statistic": 18.64044943820225,
+  "friedman_p": 0.0003244192418854171,
+  "residual_shapiro_statistic": 0.8200068537688228,
+  "residual_shapiro_p": 4.171945629791195e-05,
+  "size_interaction": {
+    "effect": "Size × alpha_pos",
+    "df_num": 6,
+    "df_den": 18,
+    "F": 0.9999999999999996,
+    "p_value": 0.45520091056823775,
+    "residual_sse": 1.1481481481481484
+  },
+  "rdi_method": "Within each instance: OPTIMAL first and ranked by CPU search time; TIME_LIMIT second and ranked by MIP gap; ranks normalized to [0,1]."
+}

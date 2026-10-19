@@ -1,0 +1,10 @@
+﻿n_parts,instance_id,optimal_run_count,time_limit_run_count,best_alpha_ser,best_alpha_pos,best_solve_status,best_search_time_seconds,best_MIP_gap
+16,1,16,0,0.0,0.2,OPTIMAL,22.4855242,0.0
+16,2,16,0,0.0,0.2,OPTIMAL,55.8239667,0.0
+16,3,16,0,0.0,0.2,OPTIMAL,21.5613269,0.0
+18,1,16,0,0.2,1.0,OPTIMAL,432.808938,0.0
+18,2,16,0,0.0,0.2,OPTIMAL,337.0840593,0.0
+18,3,16,0,0.0,0.8,OPTIMAL,439.4070698,0.0
+20,1,2,14,0.0,0.2,OPTIMAL,2941.4991298,0.0
+20,2,7,9,0.0,0.2,OPTIMAL,1741.5725158,0.0
+20,3,0,16,0.2,0.2,TIME_LIMIT,4793.778993,0.8258045445028275

@@ -1,0 +1,26 @@
+Gap-aware RDI analysis: alpha_ser=0, alpha_pos in {0, 0.2, 0.5, 0.8}
+============================================================================
+Source: Journal article\Tuning_LBpos_LBpar_LBser_3domi_global\experiment_summary.csv
+Selected observations: 36; instance blocks: 9
+Solve statuses: {'OPTIMAL': 29, 'TIME_LIMIT': 7}
+
+RDI rule: OPTIMAL runs always outrank TIME_LIMIT runs within the same instance.
+OPTIMAL runs are ordered by CPU search time; TIME_LIMIT runs are ordered by MIP gap.
+The four within-instance ranks are normalized to [0,1]; lower is better.
+
+Mean RDI ranking:
+  pos=0.2: mean=0.1296, median=0.0000, best=5/9, OPTIMAL=8/9
+  pos=0.0: mean=0.2778, median=0.3333, best=3/9, OPTIMAL=8/9
+  pos=0.5: mean=0.7037, median=0.6667, best=0/9, OPTIMAL=7/9
+  pos=0.8: mean=0.8889, median=1.0000, best=1/9, OPTIMAL=6/9
+
+Blocked one-factor ANOVA:
+  alpha_pos: F(3,24)=17.8387, p=2.64206e-06, partial eta^2=0.6904
+Friedman test: chi2=18.6404, p=0.000324419
+Residual Shapiro-Wilk: W=0.820007, p=4.17195e-05
+Size × alpha_pos: F(6,18)=1, p=0.455201
+
+Notes:
+- Rank-based RDI preserves ordering, not the magnitude of CPU-time or gap differences.
+- Each instance/configuration has one run; no repeated random seeds are available.
+- With only 9 blocks, Wilcoxon pairwise tests have limited resolution.

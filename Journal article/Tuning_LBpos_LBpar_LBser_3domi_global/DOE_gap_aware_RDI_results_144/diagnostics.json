@@ -1,0 +1,49 @@
+{
+  "input_rows": 144,
+  "blocks": 9,
+  "levels_ser": [
+    0.0,
+    0.2,
+    0.5,
+    0.8
+  ],
+  "levels_pos": [
+    0.2,
+    0.5,
+    0.8,
+    1.0
+  ],
+  "mean_RDI": 0.5038314176245211,
+  "primary": {
+    "n_observations": 144,
+    "rank": 24,
+    "residual_df": 120,
+    "residual_sse": 5.273451652207102,
+    "r_squared": 0.6139694535871171,
+    "residual_shapiro_p": 0.0174822942571731
+  },
+  "moderation": {
+    "n_observations": 144,
+    "rank": 54,
+    "residual_df": 90,
+    "residual_sse": 2.970742061919232,
+    "r_squared": 0.7825338588371346,
+    "residual_shapiro_p": 0.0015001768080111703
+  },
+  "friedman_statistic": 83.12820089211964,
+  "friedman_p": 1.862869264434088e-11,
+  "solve_status_counts": {
+    "OPTIMAL": 105,
+    "TIME_LIMIT": 39
+  },
+  "rdi_method": "Lexicographic: OPTIMAL before TIME_LIMIT; OPTIMAL ordered by search time; TIME_LIMIT ordered by MIP gap; within-instance ranks normalized to [0,1].",
+  "notes": [
+    "Each (n_parts, instance_id) forms one block; sixteen parameter configurations per block.",
+    "The size main effect is subsumed in the instance fixed-effect blocks.",
+    "All OPTIMAL runs outrank every TIME_LIMIT run within the same instance.",
+    "Search time is used only for OPTIMAL runs; MIP gap is used only for TIME_LIMIT runs.",
+    "The gap-aware RDI is rank-based, so it preserves ordering rather than the magnitude of time or gap differences.",
+    "Normal-error ANOVA p-values are approximate; the Friedman test cross-checks overall treatment differences.",
+    "Each instance-by-configuration cell contains one CPU time; no independent stochastic repetitions are present."
+  ]
+}
