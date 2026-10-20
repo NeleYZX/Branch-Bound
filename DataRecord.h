@@ -21,6 +21,11 @@ std::string get_log_filename(const std::string& input_filename,
     const std::string& result_subfolder = "");
 
 // 全局日志输出对象
+// Append one completed run to the shared summary CSV (outside solver timing).
+void append_run_summary(const std::string& input_filename, const std::string& log_filename,
+    std::size_t n_parts, double alpha_ser, double alpha_pos, double time_limit_seconds,
+    double solver_call_seconds, const Stats& stats);
+
 extern std::ofstream log_stream;
 
 // 写入 UTF-8 BOM 到日志文件开头

@@ -1,14 +1,21 @@
 #include "DataRecord.h"
+#include <iomanip>
+#include <locale>
+#include <stdexcept>
 
 //==========================数据记录================================
 namespace fs = std::filesystem;
+namespace {
+const fs::path result_root = "Journal article/BB_Basic/";
+}
+
 
 // 定义全局日志流对象
 std::ofstream log_stream;
 
 std::string get_log_filename(const std::string& input_filename, const std::string& result_subfolder) {
     std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = "Journal article/BB_Basic/";
+    std::string log_dir = result_root.string();
     if (!result_subfolder.empty()) {
         log_dir = (fs::path(log_dir) / result_subfolder).string() + "/";
     }
@@ -110,3 +117,46 @@ int export_pruned_depth_info(
 
 
 //===================第一层节点详细数据记录==================
+
+// CSV quoting also handles commas and quotation marks in file paths.
+static std::string csv_field(const std::string& value) {
+    std::string escaped = "\"";
+    for (char c : value) {
+        if (c == '"') escaped += '"';
+        escaped += c;
+    }
+    return escaped + "\"";
+}
+
+void append_run_summary(const std::string& input_filename, const std::string& log_filename,
+    std::size_t n_parts, double alpha_ser, double alpha_pos, double time_limit_seconds,
+    double solver_call_seconds, const Stats& stats) {
+    fs::create_directories(result_root);
+    const fs::path summary = result_root / "basci.csv";
+    const bool write_header = !fs::exists(summary) || fs::file_size(summary) == 0;
+    std::ofstream out(summary, std::ios::binary | std::ios::app);
+    if (!out) throw std::runtime_error("Cannot append summary CSV: " + summary.string());
+    out.imbue(std::locale::classic());
+    out << std::setprecision(std::numeric_limits<double>::max_digits10);
+    if (write_header) {
+        write_utf8_bom(out);
+        out << "instance_id,n_parts,alpha_ser,alpha_pos,solve_status,time_limit_seconds,"
+               "optimal_time_seconds,search_time_seconds,solver_call_seconds,final_UB,final_LB,"
+               "MIP_gap,MIP_gap_percent,total_nodes,serial_dp_trigger_count,serial_pruning_count,"
+               "solver_version,timing_version,input_file,source_log\r\n";
+    }
+    out << csv_field(fs::path(input_filename).stem().u8string()) << ',' << n_parts << ','
+        << alpha_ser << ',' << alpha_pos << ','
+        << (stats.proven_optimal ? "OPTIMAL" : "TIME_LIMIT") << ',' << time_limit_seconds << ',';
+    if (stats.proven_optimal) out << stats.solve_time_seconds;
+    out << ',' << stats.solve_time_seconds << ',' << solver_call_seconds << ','
+        << stats.final_ub << ',' << stats.final_lb << ',' << stats.relative_gap << ','
+        << 100.0 * stats.relative_gap << ',' << stats.total_nodes << ','
+        << stats.serial_dp_trigger_count << ',' << stats.serial_pruning_count << ','
+        // Update these labels when the algorithm or timing scope changes.
+        << "bb_pending_bounds_v1,search_after_cache_before_cleanup_v1,"
+        << csv_field(fs::path(input_filename).u8string()) << ','
+        << csv_field(fs::path(log_filename).u8string()) << "\r\n";
+    out.flush();
+    if (!out) throw std::runtime_error("Failed writing summary CSV: " + summary.string());
+}
