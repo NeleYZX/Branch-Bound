@@ -27,7 +27,7 @@ Parts Summary:
   Part 17: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
   Part 18: 8.000000 x 8.000000 x 5.000000, Vol = 75.000000, Support = 0.000000
 
-The total tardiness:637.001277
+The total tardiness:312.063806
 
 ============== Start Branch and Cut Search ==============
 
@@ -36,35 +36,33 @@ Lower-bound fractions: position=0.200000, serial=0.000000
 上下界记录已导出至: Journal article/BB_Basic/19part_TF=0.3_RDD=0.6_log_1_bounds.csv
 
 solve_status:OPTIMAL
-final_UB:291.740971
-final_LB:291.740971
+final_UB:103.907904
+final_LB:103.907904
 MIP_gap:0.000000
 MIP_gap_percent:0.000000
-optimal_time_seconds:451.305870
+optimal_time_seconds:1081.151123
 
 =============== Best Solution ===============
 Solution:
-  LB = 291.741
+  LB = 103.908
   S = {
-    Batch 0: [2, 5, 6, 7]
-    Batch 1: [8, 12, 13, 14, 15, 17, 18]
-    Batch 2: [1, 4, 9, 11, 16]
-    Batch 3: [10]
-    Batch 4: [0]
-    Batch 5: [3]
+    Batch 0: [1, 4, 5, 6, 9, 14, 15, 17]
+    Batch 1: [7, 10, 11, 12, 16]
+    Batch 2: [2, 3, 8, 13, 18]
+    Batch 3: [0]
   }
 ============= The search Info =============
-The handled total nodes(pop):38452428
-The number of generated nodes:192504259
-The number of leaf nodes:125
-The times of updated best solution:125
-pruned times-Area:2321906
-pruned times-LB:35288037
+The handled total nodes(pop):79447196
+The number of generated nodes:504413675
+The number of leaf nodes:83
+The times of updated best solution:83
+pruned times-Area:8547607
+pruned times-LB:76312604
 pruned times-Infeasible:0
-safe_merge_pruned_count:8270835
-interchange_pruned_count:190289410
-exchangeable_type1_pruned_count:22550258
-exchangeable_type2_pruned_count:8840880
+safe_merge_pruned_count:38436309
+interchange_pruned_count:243905501
+exchangeable_type1_pruned_count:51312073
+exchangeable_type2_pruned_count:13704032
 total_V_calls:0
 local_memo_hits :0
 global_memo_hits:0
@@ -73,6 +71,6 @@ serial_dp_trigger_count:0
 delta_trigger_count :0
 serial_pruning_count :0
 serial_missing_count :0
-search_time_seconds:451.305870
-solver_call_seconds:461.422473
-time:461.483000s
+search_time_seconds:1081.151123
+solver_call_seconds:1178.576080
+time:1178.671000s

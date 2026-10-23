@@ -40,7 +40,7 @@ final_UB:309.870424
 final_LB:309.870424
 MIP_gap:0.000000
 MIP_gap_percent:0.000000
-optimal_time_seconds:472.837322
+optimal_time_seconds:404.042667
 
 =============== Best Solution ===============
 Solution:
@@ -71,6 +71,6 @@ serial_dp_trigger_count:0
 delta_trigger_count :0
 serial_pruning_count :0
 serial_missing_count :0
-search_time_seconds:472.837322
-solver_call_seconds:485.138678
-time:485.212000s
+search_time_seconds:404.042667
+solver_call_seconds:417.889837
+time:417.949000s

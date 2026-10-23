@@ -27,7 +27,7 @@ Parts Summary:
   Part 17: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
   Part 18: 8.000000 x 8.000000 x 5.000000, Vol = 75.000000, Support = 0.000000
 
-The total tardiness:636.981680
+The total tardiness:252.729312
 
 ============== Start Branch and Cut Search ==============
 
@@ -35,35 +35,33 @@ Node selection strategy: Hybrid (Best-first + DFS)
 Lower-bound fractions: position=0.200000, serial=0.000000
 上下界记录已导出至: Journal article/BB_Basic/19part_TF=0.3_RDD=0.3_log_1_bounds.csv
 
-solve_status:OPTIMAL
-final_UB:292.565234
-final_LB:292.565234
-MIP_gap:0.000000
-MIP_gap_percent:0.000000
-optimal_time_seconds:830.600467
+solve_status:TIME_LIMIT
+final_UB:78.482328
+final_LB:7.160776
+MIP_gap:0.908759
+MIP_gap_percent:90.875938
+optimal_time_seconds:NA
 
 =============== Best Solution ===============
 Solution:
-  LB = 292.565
+  LB = 78.4823
   S = {
-    Batch 0: [2, 5, 6, 7]
-    Batch 1: [0, 8, 10, 11, 13, 14, 15]
-    Batch 2: [12, 16, 17, 18]
-    Batch 3: [1, 4, 9]
-    Batch 4: [3]
+    Batch 0: [0, 5, 6, 7, 14, 15, 16, 18]
+    Batch 1: [2, 3, 8, 10, 11, 12, 13, 17]
+    Batch 2: [1, 4, 9]
   }
 ============= The search Info =============
-The handled total nodes(pop):70872369
-The number of generated nodes:361484929
-The number of leaf nodes:135
-The times of updated best solution:135
-pruned times-Area:4567367
-pruned times-LB:57982305
+The handled total nodes(pop):167716931
+The number of generated nodes:1010124914
+The number of leaf nodes:87
+The times of updated best solution:87
+pruned times-Area:17656535
+pruned times-LB:74845964
 pruned times-Infeasible:0
-safe_merge_pruned_count:20341731
-interchange_pruned_count:337609903
-exchangeable_type1_pruned_count:35330582
-exchangeable_type2_pruned_count:1628424
+safe_merge_pruned_count:79281940
+interchange_pruned_count:450431466
+exchangeable_type1_pruned_count:93187886
+exchangeable_type2_pruned_count:1701195
 total_V_calls:0
 local_memo_hits :0
 global_memo_hits:0
@@ -72,6 +70,6 @@ serial_dp_trigger_count:0
 delta_trigger_count :0
 serial_pruning_count :0
 serial_missing_count :0
-search_time_seconds:830.600467
-solver_call_seconds:853.316591
-time:853.407000s
+search_time_seconds:3600.000146
+solver_call_seconds:7711.782638
+time:7711.832000s
