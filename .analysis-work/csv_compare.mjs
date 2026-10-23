@@ -1,0 +1,13 @@
+import fs from 'node:fs/promises';
+import {Workbook,SpreadsheetFile} from '@oai/artifact-tool';
+const a=JSON.parse(await fs.readFile(new URL('./audit_inputs.json',import.meta.url),'utf8'));
+const bm=new Map();for(const b of a.bb){const m=b.instance_id.match(/^(\d+)part_TF=([\d.]+)_RDD=([\d.]+)$/);if(!m)throw Error('Bad ID');const k=[+m[1],+m[2],+m[3]];if(k[0]!==+b.n_parts||bm.has(JSON.stringify(k)))throw Error('Bad key');bm.set(JSON.stringify(k),b);}
+const gu=a.gurobi.TT_1D.slice(1).filter(r=>r[0]!=null);const main=[],audit=[];
+for(let i=0;i<gu.length;i++){const g=gu[i],b=bm.get(JSON.stringify(g.slice(0,3)));let state=b?'按n、TF、RDD一致匹配':'无BB结果';if(b&&b.solve_status==='OPTIMAL'&&g[6]==='opt.'&&Math.abs(+b.final_UB-g[3])>Math.max(1e-5,1e-6*Math.max(Math.abs(+b.final_UB),Math.abs(g[3]))))state+='；最优目标值存在差异';
+main.push([...g.slice(0,7),b?+b.final_UB:null,b?+b.search_time_seconds:null]);
+audit.push([...g.slice(0,3),i+2,b?.instance_id??null,b?+b.n_parts:null,b?Number(b.instance_id.match(/TF=([\d.]+)/)[1]):null,b?Number(b.instance_id.match(/RDD=([\d.]+)/)[1]):null,b?.solve_status??null,b?+b.MIP_gap:null,state]);}
+const wb=Workbook.create(),s=wb.worksheets.add('结果对比');s.getRange(`A1:I${main.length+2}`).values=[['instance',null,null,'Gurobi',null,null,null,'BB-parallel',null],['n','TF','RDD','TT','t_run(s)','Gap','opt.','TT','t_run(s)'],...main];s.mergeCells('A1:C1');s.mergeCells('D1:G1');s.mergeCells('H1:I1');s.getRange('A1:I2').format.horizontalAlignment='center';s.getRange('A1:I54').format.columnWidth=17;s.getRange('F3:F54').setNumberFormat('0.00%');
+const t=wb.worksheets.add('对应关系核对');t.getRange('A1:K53').values=[['n','Gurobi TF','Gurobi RDD','Gurobi源行号','BB instance_id','BB n','BB TF','BB RDD','BB状态','BB gap','核对结果'],...audit];t.getRange('E1:E53').format.columnWidth=35;t.getRange('K1:K53').format.columnWidth=55;t.getRange('J2:J53').setNumberFormat('0.00%');
+const n=wb.worksheets.add('数据口径');n.getRange('A1:A6').values=[['BB列直接取自用户提供的basci.csv；TF和RDD从instance_id提取。'],['匹配键为n、TF、RDD；保持Gurobi TT_1D工作表原始行序，不按CSV行序粘贴。'],['BB TT=final_UB：最优时为最优目标值，TIME_LIMIT时仅为当前最好可行解。'],['BB runtime=search_time_seconds；Gurobi所有数值与opt.标记按原文件保留。'],['Gurobi small为另一批实例，不参与主表匹配；原数据单独保留。'],['最优目标值差异不能通过互换TF/RDD标签修正，需要核对输入实例或模型。']];n.getRange('A1:A6').format.columnWidth=115;
+const small=wb.worksheets.add('Gurobi_small_独立实例');small.getRange(`A1:G${a.gurobi.small.length}`).values=a.gurobi.small;
+wb.recalculate();await(await SpreadsheetFile.exportXlsx(wb)).save('D:/C++/Branch-Bound/.analysis-work/BB_Gurobi_按basci核对.xlsx');console.log(JSON.stringify({rows:main.length,matched:audit.filter(r=>r[4]).length,issues:audit.filter(r=>r[10].includes('差异'))}));
