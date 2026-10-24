@@ -1,0 +1,73 @@
+﻿alpha_ser=0.000000, alpha_pos=0.200000
+Machine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 1: 12.000000 x 12.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 2: 7.000000 x 4.000000 x 2.000000, Vol = 20.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 4: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
+  Part 5: 10.000000 x 9.000000 x 7.000000, Vol = 76.000000, Support = 0.000000
+  Part 6: 5.000000 x 5.000000 x 5.000000, Vol = 90.000000, Support = 0.000000
+  Part 7: 5.000000 x 5.000000 x 2.000000, Vol = 13.700000, Support = 0.000000
+  Part 8: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 9: 6.000000 x 2.000000 x 32.000000, Vol = 102.000000, Support = 0.000000
+  Part 10: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 11: 8.000000 x 6.000000 x 7.000000, Vol = 38.000000, Support = 0.000000
+  Part 12: 5.000000 x 5.000000 x 5.000000, Vol = 110.000000, Support = 0.000000
+  Part 13: 7.000000 x 7.000000 x 3.000000, Vol = 60.000000, Support = 0.000000
+  Part 14: 4.000000 x 4.000000 x 12.000000, Vol = 100.000000, Support = 0.000000
+  Part 15: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 16: 7.000000 x 7.000000 x 5.000000, Vol = 27.500000, Support = 0.000000
+  Part 17: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
+
+The total tardiness:139.940192
+
+============== Start Branch and Cut Search ==============
+
+Node selection strategy: Hybrid (Best-first + DFS)
+Lower-bound fractions: position=0.200000, serial=0.000000
+
+solve_status:OPTIMAL
+final_UB:34.068544
+final_LB:34.068544
+MIP_gap:0.000000
+MIP_gap_percent:0.000000
+optimal_time_seconds:1245.523456
+
+=============== Best Solution ===============
+Solution:
+  LB = 34.0685
+  S = {
+    Batch 0: [0, 5, 6, 7, 14, 15, 16, 17]
+    Batch 1: [1, 2, 3, 8, 10, 11, 12, 13]
+    Batch 2: [4, 9]
+  }
+============= The search Info =============
+The handled total nodes(pop):97871679
+The number of generated nodes:652176826
+The number of leaf nodes:46
+The times of updated best solution:46
+pruned times-Area:36907598
+pruned times-LB:39535960
+pruned times-Infeasible:0
+safe_merge_pruned_count:70194368
+interchange_pruned_count:87839938
+exchangeable_type1_pruned_count:86561473
+exchangeable_type2_pruned_count:1759501
+total_V_calls:0
+local_memo_hits :0
+global_memo_hits:0
+computed_states :0
+serial_dp_trigger_count:0
+delta_trigger_count :0
+serial_pruning_count :0
+serial_missing_count :0
+search_time_seconds:1245.523456
+solver_call_seconds:1293.543014
+time:1293.592000s

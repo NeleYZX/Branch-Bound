@@ -6,7 +6,7 @@
 //==========================Êý¾Ý¼ÇÂ¼================================
 namespace fs = std::filesystem;
 namespace {
-const fs::path result_root = "Journal article/BB_Basic/";
+const fs::path result_root = "Journal article/BB_Basic_without Record/";
 }
 
 

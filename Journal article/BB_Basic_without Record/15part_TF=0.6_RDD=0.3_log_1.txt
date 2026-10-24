@@ -1,0 +1,72 @@
+﻿alpha_ser=0.000000, alpha_pos=0.200000
+Machine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 20.000000 x 20.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 3.000000 x 6.000000 x 32.000000, Vol = 90.000000, Support = 0.000000
+  Part 1: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 2: 7.000000 x 3.000000 x 3.000000, Vol = 30.000000, Support = 0.000000
+  Part 3: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 4: 4.000000 x 5.000000 x 5.000000, Vol = 72.000000, Support = 0.000000
+  Part 5: 8.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 6: 7.000000 x 7.000000 x 4.000000, Vol = 78.600000, Support = 0.000000
+  Part 7: 5.000000 x 4.000000 x 7.000000, Vol = 98.000000, Support = 0.000000
+  Part 8: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+  Part 9: 5.000000 x 4.000000 x 7.000000, Vol = 84.000000, Support = 0.000000
+  Part 10: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 30.000000
+  Part 11: 5.000000 x 4.000000 x 6.000000, Vol = 60.000000, Support = 0.000000
+  Part 12: 7.000000 x 4.000000 x 3.000000, Vol = 150.000000, Support = 0.000000
+  Part 13: 5.000000 x 4.000000 x 7.000000, Vol = 62.000000, Support = 0.000000
+  Part 14: 8.000000 x 8.000000 x 2.000000, Vol = 103.680000, Support = 0.000000
+
+The total tardiness:431.919229
+
+============== Start Branch and Cut Search ==============
+
+Node selection strategy: Hybrid (Best-first + DFS)
+Lower-bound fractions: position=0.200000, serial=0.000000
+
+solve_status:OPTIMAL
+final_UB:129.830381
+final_LB:129.830381
+MIP_gap:0.000000
+MIP_gap_percent:0.000000
+optimal_time_seconds:6.968564
+
+=============== Best Solution ===============
+Solution:
+  LB = 129.83
+  S = {
+    Batch 0: [2, 3, 4, 7, 9, 10, 11, 13]
+    Batch 1: [5, 6, 14]
+    Batch 2: [8, 12]
+    Batch 3: [1]
+    Batch 4: [0]
+  }
+============= The search Info =============
+The handled total nodes(pop):549634
+The number of generated nodes:3475361
+The number of leaf nodes:67
+The times of updated best solution:67
+pruned times-Area:0
+pruned times-LB:723595
+pruned times-Infeasible:0
+safe_merge_pruned_count:34142
+interchange_pruned_count:1243055
+exchangeable_type1_pruned_count:125124
+exchangeable_type2_pruned_count:4043
+total_V_calls:0
+local_memo_hits :0
+global_memo_hits:0
+computed_states :0
+serial_dp_trigger_count:0
+delta_trigger_count :0
+serial_pruning_count :0
+serial_missing_count :0
+search_time_seconds:6.968564
+solver_call_seconds:7.167719
+time:7.204000s
