@@ -1,4 +1,5 @@
 #include "DataRecord.h"
+#include "AblationConfig.h"
 #include <iomanip>
 #include <locale>
 #include <stdexcept>
@@ -6,7 +7,8 @@
 //==========================Êý¾Ý¼ÇÂ¼================================
 namespace fs = std::filesystem;
 namespace {
-const fs::path result_root = "Journal article/BB_LBpar_without Record/";
+const fs::path result_root = fs::path("Journal article/BB_dominance_ablation")
+    / AblationConfig::experiment_tag();
 }
 
 

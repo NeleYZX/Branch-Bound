@@ -140,6 +140,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BranchBound.h" />
+    <ClInclude Include="AblationConfig.h" />
     <ClInclude Include="DataRecord.h" />
     <ClInclude Include="DynamicProgramming.h" />
     <ClInclude Include="InstanceData.h" />
