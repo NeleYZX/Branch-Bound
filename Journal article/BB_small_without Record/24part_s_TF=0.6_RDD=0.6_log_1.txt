@@ -1,0 +1,90 @@
+﻿alpha_ser=0.000000, alpha_pos=0.200000
+Machine Info:
+  ID: 1, Num: 1
+  Scanning speed: 0.030864
+  Recoater speed: 0.700000
+  Setup time: 2.000000
+  Size: 10.000000 x 10.000000 x 32.000000
+
+Parts Summary:
+  Part 0: 10.000000 x 10.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 1: 7.000000 x 5.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 2: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 3: 7.000000 x 7.000000 x 2.000000, Vol = 45.000000, Support = 0.000000
+  Part 4: 9.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 5: 5.000000 x 4.000000 x 5.000000, Vol = 100.000000, Support = 0.000000
+  Part 6: 8.000000 x 8.000000 x 8.000000, Vol = 340.000000, Support = 0.000000
+  Part 7: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 8: 6.000000 x 3.000000 x 1.000000, Vol = 15.000000, Support = 0.000000
+  Part 9: 8.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 10: 10.000000 x 10.000000 x 8.000000, Vol = 76.500000, Support = 0.000000
+  Part 11: 9.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 12: 10.000000 x 4.000000 x 1.000000, Vol = 30.000000, Support = 0.000000
+  Part 13: 6.000000 x 3.000000 x 32.000000, Vol = 200.000000, Support = 0.000000
+  Part 14: 8.000000 x 3.000000 x 4.000000, Vol = 50.000000, Support = 0.000000
+  Part 15: 6.000000 x 5.000000 x 5.000000, Vol = 110.000000, Support = 0.000000
+  Part 16: 8.000000 x 8.000000 x 5.000000, Vol = 21.700000, Support = 0.000000
+  Part 17: 10.000000 x 6.000000 x 8.000000, Vol = 150.000000, Support = 0.000000
+  Part 18: 10.000000 x 8.000000 x 14.000000, Vol = 304.000000, Support = 0.000000
+  Part 19: 5.000000 x 4.000000 x 2.000000, Vol = 30.000000, Support = 0.000000
+  Part 20: 8.000000 x 8.000000 x 8.000000, Vol = 340.000000, Support = 0.000000
+  Part 21: 6.000000 x 6.000000 x 4.000000, Vol = 9.600000, Support = 0.000000
+  Part 22: 7.000000 x 7.000000 x 3.000000, Vol = 60.000000, Support = 0.000000
+  Part 23: 8.000000 x 8.000000 x 8.000000, Vol = 340.000000, Support = 0.000000
+
+The total tardiness:1471.344683
+
+============== Start Branch and Cut Search ==============
+
+Node selection strategy: Hybrid (Best-first + DFS)
+Lower-bound fractions: position=0.200000, serial=0.000000
+
+solve_status:TIME_LIMIT
+final_UB:633.452606
+final_LB:182.215333
+MIP_gap:0.712346
+MIP_gap_percent:71.234575
+optimal_time_seconds:NA
+
+=============== Best Solution ===============
+Solution:
+  LB = 633.453
+  S = {
+    Batch 0: [12, 19]
+    Batch 1: [16, 21]
+    Batch 2: [10]
+    Batch 3: [3, 4, 9]
+    Batch 4: [0]
+    Batch 5: [2, 5, 8]
+    Batch 6: [11, 14, 22]
+    Batch 7: [1, 17]
+    Batch 8: [15, 23]
+    Batch 9: [6]
+    Batch 10: [20]
+    Batch 11: [18]
+    Batch 12: [7]
+    Batch 13: [13]
+  }
+============= The search Info =============
+The handled total nodes(pop):215295624
+The number of generated nodes:1097890309
+The number of leaf nodes:181
+The times of updated best solution:181
+pruned times-Area:1884864215
+pruned times-LB:281106549
+pruned times-Infeasible:0
+safe_merge_pruned_count:9410207
+interchange_pruned_count:1725818035
+exchangeable_type1_pruned_count:96320871
+exchangeable_type2_pruned_count:14625302
+total_V_calls:0
+local_memo_hits :0
+global_memo_hits:0
+computed_states :0
+serial_dp_trigger_count:0
+delta_trigger_count :0
+serial_pruning_count :0
+serial_missing_count :0
+search_time_seconds:3600.000036
+solver_call_seconds:3859.182401
+time:3859.279000s
