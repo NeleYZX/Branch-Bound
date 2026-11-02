@@ -17,16 +17,16 @@ std::ofstream log_stream;
 
 std::string get_log_filename(const std::string& input_filename, const std::string& result_subfolder) {
     std::string base = fs::path(input_filename).stem().string();  // 提取文件名（不含路径与后缀）
-    std::string log_dir = result_root.string();
+    fs::path log_dir = result_root;
     if (!result_subfolder.empty()) {
-        log_dir = (fs::path(log_dir) / result_subfolder).string() + "/";
+        log_dir /= result_subfolder;
     }
     fs::create_directories(log_dir);  // 创建 logs 目录（若不存在）
 
     int count = 1;
     std::string log_filename;
     do {
-        log_filename = log_dir + base + "_log_" + std::to_string(count) + ".txt";
+        log_filename = (log_dir / (base + "_log_" + std::to_string(count) + ".txt")).string();
         count++;
     } while (fs::exists(log_filename));
 
