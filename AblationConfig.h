@@ -5,10 +5,10 @@
 // Edit these four switches, then rebuild. true = enabled, false = disabled.
 // Exchangeable-parts dominance covers BOTH Type-I and Type-II branches.
 namespace AblationConfig {
-inline constexpr bool USE_GLOBAL_STATE = true;
-inline constexpr bool USE_SAFE_MERGE = true;
-inline constexpr bool USE_ADJACENT_INTERCHANGE = true;
-inline constexpr bool USE_EXCHANGEABLE_PARTS = true;
+inline constexpr bool USE_GLOBAL_STATE = false;
+inline constexpr bool USE_SAFE_MERGE = false;
+inline constexpr bool USE_ADJACENT_INTERCHANGE = false;
+inline constexpr bool USE_EXCHANGEABLE_PARTS = false;
 
 // Both bounds are active: the combined lower bound is max(LBpar, LBpos).
 inline constexpr bool USE_POSITIONAL_BOUND = true;
